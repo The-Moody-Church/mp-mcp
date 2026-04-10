@@ -23,10 +23,23 @@ const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 // In-memory store for dynamically registered OAuth clients
 const registeredClients = new Map<string, OAuthClientInformationFull>();
 
-// Logging fetch wrapper to debug OAuth proxy requests
-const loggingFetch: typeof fetch = async (input, init) => {
+// Custom fetch that strips parameters MP doesn't understand
+// and logs requests for debugging.
+const mpFetch: typeof fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const method = init?.method || "GET";
+
+  // For token endpoint POSTs, strip parameters MP doesn't support
+  if (method === "POST" && url.includes("/token") && typeof init?.body === "string") {
+    const params = new URLSearchParams(init.body);
+    // MP doesn't support RFC 8707 resource indicators
+    params.delete("resource");
+    // MP doesn't support PKCE code_verifier (skipLocalPkceValidation
+    // prevents our server from checking it, but MP also rejects it)
+    params.delete("code_verifier");
+    init = { ...init, body: params.toString() };
+  }
+
   console.log(`[OAuth proxy] ${method} ${url}`);
   if (init?.body) {
     console.log(`[OAuth proxy] body: ${init.body}`);
@@ -44,7 +57,7 @@ const oauthProvider = new ProxyOAuthServerProvider({
     authorizationUrl: `${mpOAuthBase}/connect/authorize`,
     tokenUrl: `${mpOAuthBase}/connect/token`,
   },
-  fetch: loggingFetch,
+  fetch: mpFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
     // Verify the token by calling MP's userinfo endpoint
