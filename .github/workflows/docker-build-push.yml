@@ -21,9 +21,6 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=critical
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -41,7 +38,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ghcr.io/the-moody-church/mp-mcp:${{ github.sha }}
           cache-from: type=gha
