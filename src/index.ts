@@ -114,7 +114,24 @@ const originalClientStore = oauthProvider.clientsStore;
 Object.defineProperty(oauthProvider, "clientsStore", {
   get() {
     return {
-      getClient: async (clientId: string) => registeredClients.get(clientId),
+      getClient: async (clientId: string) => {
+        // Check dynamically registered clients first
+        const stored = registeredClients.get(clientId);
+        if (stored) return stored;
+
+        // If it's our configured OIDC client, return it directly.
+        // Claude Desktop sends the client_id from the connector config
+        // without always going through /register first.
+        if (clientId === config.oidcClientId) {
+          return {
+            client_id: clientId,
+            client_secret: config.oidcClientSecret,
+            redirect_uris: [new URL("https://claude.ai/api/mcp/auth_callback")],
+          } as unknown as OAuthClientInformationFull;
+        }
+
+        return undefined;
+      },
       registerClient: async (clientInfo: OAuthClientInformationFull) => {
         const clientId = clientInfo.client_id || randomUUID();
         const full: OAuthClientInformationFull = {
