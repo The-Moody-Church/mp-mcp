@@ -66,6 +66,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
 
       - name: Push latest tag
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

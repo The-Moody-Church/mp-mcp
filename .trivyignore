@@ -1,0 +1,5 @@
+# picomatch CVE-2026-33671 — ReDoS in npm's bundled copy of picomatch.
+# This is inside npm itself (not our code or dependencies).
+# Not exploitable in our server — we don't process user-supplied glob patterns.
+# Will resolve when Node.js ships a newer npm in the base image.
+CVE-2026-33671
