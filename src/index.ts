@@ -23,11 +23,28 @@ const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 // In-memory store for dynamically registered OAuth clients
 const registeredClients = new Map<string, OAuthClientInformationFull>();
 
+// Logging fetch wrapper to debug OAuth proxy requests
+const loggingFetch: typeof fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+  const method = init?.method || "GET";
+  console.log(`[OAuth proxy] ${method} ${url}`);
+  if (init?.body) {
+    console.log(`[OAuth proxy] body: ${init.body}`);
+  }
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    const text = await res.clone().text();
+    console.error(`[OAuth proxy] ${res.status} response: ${text}`);
+  }
+  return res;
+};
+
 const oauthProvider = new ProxyOAuthServerProvider({
   endpoints: {
     authorizationUrl: `${mpOAuthBase}/connect/authorize`,
     tokenUrl: `${mpOAuthBase}/connect/token`,
   },
+  fetch: loggingFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
     // Verify the token by calling MP's userinfo endpoint
