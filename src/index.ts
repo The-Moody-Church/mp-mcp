@@ -126,7 +126,7 @@ Object.defineProperty(oauthProvider, "clientsStore", {
           return {
             client_id: clientId,
             client_secret: config.oidcClientSecret,
-            redirect_uris: [new URL("https://claude.ai/api/mcp/auth_callback")],
+            redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
           } as unknown as OAuthClientInformationFull;
         }
 
