@@ -53,6 +53,7 @@ export interface AppConfig {
   publicUrl: string;
   port: number;
   sessionSecret: string;
+  allowedUserGroupIds: number[];
 }
 
 export function loadAppConfig(): AppConfig {
@@ -62,6 +63,15 @@ export function loadAppConfig(): AppConfig {
     return val;
   };
 
+  // Parse comma-separated group IDs. If not set, no restriction (empty = allow all).
+  const groupIdsRaw = process.env.ALLOWED_USER_GROUP_IDS || "";
+  const allowedUserGroupIds = groupIdsRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter((n) => !isNaN(n));
+
   return {
     mpBaseUrl: required("MP_BASE_URL").replace(/\/+$/, ""),
     oidcClientId: required("OIDC_CLIENT_ID"),
@@ -69,5 +79,6 @@ export function loadAppConfig(): AppConfig {
     publicUrl: required("PUBLIC_URL").replace(/\/+$/, ""),
     port: parseInt(process.env.PORT || "3000", 10),
     sessionSecret: required("SESSION_SECRET"),
+    allowedUserGroupIds,
   };
 }

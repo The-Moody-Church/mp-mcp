@@ -68,6 +68,27 @@ app.get("/auth/callback", async (req, res) => {
   try {
     const tokens = await exchangeCode(config, code);
     const user = await getUserInfo(config, tokens.accessToken);
+
+    // Check user group membership if restrictions are configured
+    if (config.allowedUserGroupIds.length > 0) {
+      const hasAccess = user.userGroupIds.some((gid) =>
+        config.allowedUserGroupIds.includes(gid)
+      );
+      if (!hasAccess) {
+        console.warn(
+          `Access denied for ${user.name || user.sub} — not in allowed user groups. ` +
+          `User groups: [${user.userGroupIds.join(", ")}], allowed: [${config.allowedUserGroupIds.join(", ")}]`
+        );
+        res.status(403).send(
+          `<html><body>
+            <h2>Access Denied</h2>
+            <p>Your Ministry Platform account does not have access to this service. Contact your administrator.</p>
+          </body></html>`
+        );
+        return;
+      }
+    }
+
     const sessionId = createSession(user, tokens);
     const cookie = signSessionCookie(sessionId, config.sessionSecret);
 

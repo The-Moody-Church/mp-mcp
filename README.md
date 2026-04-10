@@ -45,6 +45,7 @@ cp .env.example .env
 | `PUBLIC_URL` | The public URL where this server is hosted (e.g., `https://mcp.yourchurch.com`) |
 | `PORT` | Server port (default: `3000`) |
 | `SESSION_SECRET` | Random string for signing session cookies — generate with `openssl rand -hex 32` |
+| `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
 
 ### 3. Configure table allowlist
 
@@ -72,9 +73,10 @@ Tables not listed are blocked entirely, regardless of the user's MP security rol
 ```bash
 # Copy and configure
 cp docker-compose.example.yml docker-compose.yml
+cp .env.example .env
 cp config/table-access.example.json config/table-access.json
 
-# Edit docker-compose.yml with your environment values
+# Edit .env with your credentials and settings
 # Edit config/table-access.json with your table allowlist
 
 # Run

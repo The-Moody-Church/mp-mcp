@@ -110,10 +110,13 @@ export interface UserInfo {
   sub: string;
   email?: string;
   name?: string;
+  mpUserId?: number;
+  userGroupIds: number[];
 }
 
 /**
- * Fetch the user's profile from MP's OIDC userinfo endpoint.
+ * Fetch the user's profile from MP's OIDC userinfo endpoint,
+ * then look up their MP User_ID and user group memberships.
  */
 export async function getUserInfo(
   appConfig: AppConfig,
@@ -122,9 +125,46 @@ export async function getUserInfo(
   const config = await getOidcConfig(appConfig);
   const userinfo = await client.fetchUserInfo(config, accessToken, "");
 
-  return {
+  const baseInfo: UserInfo = {
     sub: userinfo.sub,
     email: userinfo.email,
     name: [userinfo.given_name, userinfo.family_name].filter(Boolean).join(" ") || undefined,
+    userGroupIds: [],
   };
+
+  // Look up the user's MP User_ID and group memberships
+  try {
+    const apiBase = `${appConfig.mpBaseUrl}/ministryplatformapi`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    };
+
+    // Get the user record by GUID
+    const usersRes = await fetch(
+      `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
+      { headers }
+    );
+    if (usersRes.ok) {
+      const users = (await usersRes.json()) as Array<{ User_ID: number }>;
+      if (users.length > 0) {
+        baseInfo.mpUserId = users[0].User_ID;
+
+        // Get group memberships
+        const groupsRes = await fetch(
+          `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
+          { headers }
+        );
+        if (groupsRes.ok) {
+          const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
+          baseInfo.userGroupIds = groups.map((g) => g.User_Group_ID);
+        }
+      }
+    }
+  } catch (err) {
+    // Non-fatal — user can still authenticate, just without group info
+    console.warn("Failed to fetch MP user groups:", err);
+  }
+
+  return baseInfo;
 }
