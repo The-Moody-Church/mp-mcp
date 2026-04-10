@@ -4,3 +4,4 @@ dist/
 config/table-access.json
 docker-compose.yml
 *.tgz
+*.log

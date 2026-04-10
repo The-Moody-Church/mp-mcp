@@ -1,0 +1,39 @@
+{
+  "name": "mp-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Ministry Platform — gives Claude direct access to the MP REST API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/The-Moody-Church/mp-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "ministry-platform",
+    "church-management",
+    "claude",
+    "model-context-protocol"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.1.0",
+    "openid-client": "^6.4.3",
+    "zod": "^3.25.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
