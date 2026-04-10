@@ -50,7 +50,14 @@ const mpFetch: typeof fetch = async (input, init) => {
     console.error(`[OAuth proxy] ${res.status} response: ${text}`);
   } else if (url.includes("/token")) {
     const text = await res.clone().text();
-    console.log(`[OAuth proxy] ${res.status} token response: ${text.substring(0, 200)}`);
+    // Log the field names (not values) to see the response structure
+    try {
+      const json = JSON.parse(text);
+      const fields = Object.keys(json).map(k => `${k}=${typeof json[k] === 'string' ? json[k].substring(0, 15) + '...' : json[k]}`);
+      console.log(`[OAuth proxy] ${res.status} token response fields: ${fields.join(', ')}`);
+    } catch {
+      console.log(`[OAuth proxy] ${res.status} token response (not JSON): ${text.substring(0, 100)}`);
+    }
   }
   return res;
 };
