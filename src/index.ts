@@ -20,6 +20,9 @@ loadTableAccess();
 
 const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 
+// In-memory store for dynamically registered OAuth clients
+const registeredClients = new Map<string, OAuthClientInformationFull>();
+
 const oauthProvider = new ProxyOAuthServerProvider({
   endpoints: {
     authorizationUrl: `${mpOAuthBase}/connect/authorize`,
@@ -98,18 +101,33 @@ const oauthProvider = new ProxyOAuthServerProvider({
   },
 
   getClient: async (clientId: string): Promise<OAuthClientInformationFull | undefined> => {
-    // Check the in-memory store first (populated by /register)
-    const stored = await oauthProvider.clientsStore.getClient(clientId);
-    if (stored) return stored;
-
-    // Fallback for the known OIDC client — should not normally be needed
-    // since Claude Desktop registers dynamically via /register first.
-    return undefined;
+    return registeredClients.get(clientId);
   },
 });
 
 // PKCE validation is handled by MP's OAuth server, not locally
 oauthProvider.skipLocalPkceValidation = true;
+
+// Override clientsStore to handle dynamic client registration locally.
+// Claude Desktop calls /register before /authorize to register its redirect_uri.
+const originalClientStore = oauthProvider.clientsStore;
+Object.defineProperty(oauthProvider, "clientsStore", {
+  get() {
+    return {
+      getClient: async (clientId: string) => registeredClients.get(clientId),
+      registerClient: async (clientInfo: OAuthClientInformationFull) => {
+        const clientId = clientInfo.client_id || randomUUID();
+        const full: OAuthClientInformationFull = {
+          ...clientInfo,
+          client_id: clientId,
+          client_secret: clientInfo.client_secret || config.oidcClientSecret,
+        };
+        registeredClients.set(clientId, full);
+        return full;
+      },
+    };
+  },
+});
 
 const app = express();
 
