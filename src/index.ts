@@ -1,186 +1,182 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+import { ProxyOAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/providers/proxyProvider.js";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { createMcpServer } from "./server.js";
 import { loadAppConfig, loadTableAccess } from "./config.js";
-import {
-  getAuthorizationUrl,
-  exchangeCode,
-  getUserInfo,
-} from "./auth/oidc.js";
-import {
-  createOidcState,
-  consumeOidcState,
-  createSession,
-  getSession,
-  deleteSession,
-  signSessionCookie,
-  verifySessionCookie,
-  parseCookies,
-} from "./auth/session.js";
 
 const config = loadAppConfig();
 
 // Validate table access config on startup
 loadTableAccess();
 
+// ── OAuth proxy provider ───────────────────────────────────────────────────
+// Proxies OAuth to Ministry Platform's OIDC endpoints.
+// Claude Desktop handles the OAuth flow; we just forward to MP.
+
+const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
+
+const oauthProvider = new ProxyOAuthServerProvider({
+  endpoints: {
+    authorizationUrl: `${mpOAuthBase}/connect/authorize`,
+    tokenUrl: `${mpOAuthBase}/connect/token`,
+  },
+
+  verifyAccessToken: async (token: string): Promise<AuthInfo> => {
+    // Verify the token by calling MP's userinfo endpoint
+    const res = await fetch(`${mpOAuthBase}/connect/userinfo`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      throw new Error("Invalid or expired token");
+    }
+
+    const userinfo = (await res.json()) as Record<string, string>;
+
+    // Check user group restrictions if configured
+    if (config.allowedUserGroupIds.length > 0) {
+      try {
+        const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        };
+
+        const usersRes = await fetch(
+          `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
+          { headers }
+        );
+
+        if (usersRes.ok) {
+          const users = (await usersRes.json()) as Array<{ User_ID: number }>;
+          if (users.length > 0) {
+            const groupsRes = await fetch(
+              `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
+              { headers }
+            );
+
+            if (groupsRes.ok) {
+              const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
+              const userGroupIds = groups.map((g) => g.User_Group_ID);
+              const hasAccess = userGroupIds.some((gid) =>
+                config.allowedUserGroupIds.includes(gid)
+              );
+
+              if (!hasAccess) {
+                throw new Error("User not in allowed groups");
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message === "User not in allowed groups") {
+          throw err;
+        }
+        // Non-fatal — allow access if group check fails
+        console.warn("Failed to check user groups:", err);
+      }
+    }
+
+    return {
+      token,
+      clientId: config.oidcClientId,
+      scopes: ["openid", "offline_access"],
+      extra: {
+        mpBaseUrl: config.mpBaseUrl,
+        accessToken: token,
+        userId: userinfo.sub,
+        userName: [userinfo.given_name, userinfo.family_name]
+          .filter(Boolean)
+          .join(" "),
+      },
+    };
+  },
+
+  getClient: async (clientId: string): Promise<OAuthClientInformationFull | undefined> => {
+    // Return client info for any registered client.
+    // The actual client validation happens at MP's OAuth server.
+    return {
+      client_id: clientId,
+      client_secret: config.oidcClientSecret,
+      redirect_uris: [],
+    } as unknown as OAuthClientInformationFull;
+  },
+});
+
+// PKCE validation is handled by MP's OAuth server, not locally
+oauthProvider.skipLocalPkceValidation = true;
+
 const app = express();
+
+// ── MCP OAuth auth routes (metadata, authorize, token, register) ───────────
+// Must be mounted at root before any body parsing middleware.
+
+app.use(
+  mcpAuthRouter({
+    provider: oauthProvider,
+    issuerUrl: new URL(config.publicUrl),
+    baseUrl: new URL(config.publicUrl),
+    scopesSupported: [
+      "openid",
+      "offline_access",
+      "http://www.thinkministry.com/dataplatform/scopes/all",
+    ],
+    resourceName: "Ministry Platform MCP Server",
+    resourceServerUrl: new URL(`${config.publicUrl}/mcp`),
+  })
+);
+
 app.use(express.json());
 
 // ── Session-scoped MCP transports ──────────────────────────────────────────
 
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
-/**
- * Extract the session from the request cookie, or return null.
- */
-async function getSessionFromRequest(req: express.Request) {
-  const cookies = parseCookies(req.headers.cookie);
-  const signed = cookies["mp_mcp_session"];
-  if (!signed) return null;
+// ── MCP endpoint (protected by Bearer auth) ────────────────────────────────
 
-  const sessionId = verifySessionCookie(signed, config.sessionSecret);
-  if (!sessionId) return null;
-
-  return { sessionId, session: await getSession(sessionId, config) };
-}
-
-// ── Auth routes ────────────────────────────────────────────────────────────
-
-app.get("/auth/login", async (_req, res) => {
-  const state = createOidcState();
-  const url = await getAuthorizationUrl(config, state);
-  res.redirect(url);
+const bearerAuth = requireBearerAuth({
+  verifier: oauthProvider,
+  resourceMetadataUrl: `${config.publicUrl}/.well-known/oauth-protected-resource/mcp`,
 });
-
-app.get("/auth/callback", async (req, res) => {
-  const { code, state } = req.query;
-  if (!code || !state || typeof code !== "string" || typeof state !== "string") {
-    res.status(400).send("Missing code or state parameter");
-    return;
-  }
-
-  if (!consumeOidcState(state)) {
-    res.status(400).send("Invalid or expired state parameter");
-    return;
-  }
-
-  try {
-    const tokens = await exchangeCode(config, code);
-    const user = await getUserInfo(config, tokens.accessToken, tokens.sub);
-
-    // Check user group membership if restrictions are configured
-    if (config.allowedUserGroupIds.length > 0) {
-      const hasAccess = user.userGroupIds.some((gid) =>
-        config.allowedUserGroupIds.includes(gid)
-      );
-      if (!hasAccess) {
-        console.warn(
-          `Access denied for ${user.name || user.sub} — not in allowed user groups. ` +
-          `User groups: [${user.userGroupIds.join(", ")}], allowed: [${config.allowedUserGroupIds.join(", ")}]`
-        );
-        res.status(403).send(
-          `<html><body>
-            <h2>Access Denied</h2>
-            <p>Your Ministry Platform account does not have access to this service. Contact your administrator.</p>
-          </body></html>`
-        );
-        return;
-      }
-    }
-
-    const sessionId = createSession(user, tokens);
-    const cookie = signSessionCookie(sessionId, config.sessionSecret);
-
-    res.setHeader(
-      "Set-Cookie",
-      `mp_mcp_session=${encodeURIComponent(cookie)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
-    );
-    res.send(
-      `<html><body>
-        <h2>Authenticated as ${user.name || user.email || user.sub}</h2>
-        <p>You can close this window and return to your MCP client.</p>
-      </body></html>`
-    );
-  } catch (err) {
-    console.error("OIDC callback error:", err);
-    res.status(500).send("Authentication failed");
-  }
-});
-
-app.get("/auth/logout", async (req, res) => {
-  const result = await getSessionFromRequest(req);
-  if (result?.sessionId) {
-    deleteSession(result.sessionId);
-    // Clean up any MCP transports for this session
-    const transport = transports.get(result.sessionId);
-    if (transport) {
-      await transport.close();
-      transports.delete(result.sessionId);
-    }
-  }
-  res.setHeader(
-    "Set-Cookie",
-    "mp_mcp_session=; Path=/; HttpOnly; Max-Age=0"
-  );
-  res.send("Logged out");
-});
-
-// ── MCP endpoint ───────────────────────────────────────────────────────────
 
 async function handleMcp(req: express.Request, res: express.Response) {
-  const result = await getSessionFromRequest(req);
-
-  if (!result?.session) {
-    // Not authenticated — tell the client where to authenticate
-    res.status(401).json({
-      error: "Not authenticated",
-      loginUrl: `${config.publicUrl}/auth/login`,
-      message:
-        "Visit the loginUrl in a browser to authenticate with Ministry Platform, then retry.",
-    });
+  // req.auth is set by bearerAuth middleware
+  const authInfo = req.auth;
+  if (!authInfo) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
-  const { sessionId, session } = result;
+  const transportKey = authInfo.extra?.userId as string || authInfo.token;
 
-  // Set authInfo on the request so the MCP transport passes it to tool handlers
-  (req as express.Request & { auth?: unknown }).auth = {
-    token: session.tokens.accessToken,
-    clientId: config.oidcClientId,
-    scopes: ["openid", "offline_access"],
-    extra: {
-      mpBaseUrl: config.mpBaseUrl,
-      accessToken: session.tokens.accessToken,
-      userId: session.user.sub,
-      userName: session.user.name,
-    },
-  };
-
-  // Get or create a transport for this session
-  let transport = transports.get(sessionId);
+  // Get or create a transport for this user
+  let transport = transports.get(transportKey);
   if (!transport) {
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
     });
 
-    transports.set(sessionId, transport);
+    transports.set(transportKey, transport);
 
     const server = createMcpServer();
     await server.connect(transport);
 
-    // Clean up on close
     transport.onclose = () => {
-      transports.delete(sessionId);
+      transports.delete(transportKey);
     };
   }
 
   await transport.handleRequest(req, res, req.body);
 }
 
-app.post("/mcp", handleMcp);
-app.get("/mcp", handleMcp);
-app.delete("/mcp", handleMcp);
+app.post("/mcp", bearerAuth, handleMcp);
+app.get("/mcp", bearerAuth, handleMcp);
+app.delete("/mcp", bearerAuth, handleMcp);
 
 // ── Health check ───────────────────────────────────────────────────────────
 
@@ -193,6 +189,5 @@ app.get("/health", (_req, res) => {
 app.listen(config.port, "0.0.0.0", () => {
   console.log(`mp-mcp server listening on port ${config.port}`);
   console.log(`  MCP endpoint: ${config.publicUrl}/mcp`);
-  console.log(`  Auth login:   ${config.publicUrl}/auth/login`);
   console.log(`  Health check: ${config.publicUrl}/health`);
 });
