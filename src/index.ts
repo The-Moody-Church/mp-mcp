@@ -98,13 +98,13 @@ const oauthProvider = new ProxyOAuthServerProvider({
   },
 
   getClient: async (clientId: string): Promise<OAuthClientInformationFull | undefined> => {
-    // Return client info for any registered client.
-    // The actual client validation happens at MP's OAuth server.
-    return {
-      client_id: clientId,
-      client_secret: config.oidcClientSecret,
-      redirect_uris: [],
-    } as unknown as OAuthClientInformationFull;
+    // Check the in-memory store first (populated by /register)
+    const stored = await oauthProvider.clientsStore.getClient(clientId);
+    if (stored) return stored;
+
+    // Fallback for the known OIDC client — should not normally be needed
+    // since Claude Desktop registers dynamically via /register first.
+    return undefined;
   },
 });
 
