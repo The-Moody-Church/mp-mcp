@@ -99,7 +99,7 @@ app.get("/auth/callback", async (req, res) => {
     res.send(
       `<html><body>
         <h2>Authenticated as ${user.name || user.email || user.sub}</h2>
-        <p>You can close this window and return to Claude.</p>
+        <p>You can close this window and return to your MCP client.</p>
       </body></html>`
     );
   } catch (err) {
