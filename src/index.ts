@@ -113,6 +113,9 @@ oauthProvider.skipLocalPkceValidation = true;
 
 const app = express();
 
+// Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
+app.set("trust proxy", 1);
+
 // ── MCP OAuth auth routes (metadata, authorize, token, register) ───────────
 // Must be mounted at root before any body parsing middleware.
 
