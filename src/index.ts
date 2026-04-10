@@ -48,6 +48,9 @@ const mpFetch: typeof fetch = async (input, init) => {
   if (!res.ok) {
     const text = await res.clone().text();
     console.error(`[OAuth proxy] ${res.status} response: ${text}`);
+  } else if (url.includes("/token")) {
+    const text = await res.clone().text();
+    console.log(`[OAuth proxy] ${res.status} token response: ${text.substring(0, 200)}`);
   }
   return res;
 };
@@ -60,14 +63,18 @@ const oauthProvider = new ProxyOAuthServerProvider({
   fetch: mpFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
+    console.log(`[verifyAccessToken] checking token: ${token.substring(0, 20)}...`);
     // Verify the token by calling MP's userinfo endpoint
     const res = await fetch(`${mpOAuthBase}/connect/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
+      const text = await res.text();
+      console.error(`[verifyAccessToken] userinfo failed ${res.status}: ${text}`);
       throw new Error("Invalid or expired token");
     }
+    console.log(`[verifyAccessToken] userinfo OK`);
 
     const userinfo = (await res.json()) as Record<string, string>;
 
