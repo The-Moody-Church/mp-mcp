@@ -67,7 +67,7 @@ app.get("/auth/callback", async (req, res) => {
 
   try {
     const tokens = await exchangeCode(config, code);
-    const user = await getUserInfo(config, tokens.accessToken);
+    const user = await getUserInfo(config, tokens.accessToken, tokens.sub);
 
     // Check user group membership if restrictions are configured
     if (config.allowedUserGroupIds.length > 0) {

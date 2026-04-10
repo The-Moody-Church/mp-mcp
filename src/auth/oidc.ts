@@ -53,6 +53,7 @@ export interface TokenSet {
   accessToken: string;
   refreshToken?: string;
   expiresAt?: number;
+  sub?: string;
 }
 
 /**
@@ -73,12 +74,17 @@ export async function exchangeCode(
     throw new Error("Token exchange did not return an access_token");
   }
 
+  // Extract sub from ID token claims if available
+  const claims = tokens.claims();
+  const sub = claims?.sub;
+
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: tokens.expires_in
       ? Date.now() + tokens.expires_in * 1000
       : undefined,
+    sub,
   };
 }
 
@@ -120,15 +126,43 @@ export interface UserInfo {
  */
 export async function getUserInfo(
   appConfig: AppConfig,
-  accessToken: string
+  accessToken: string,
+  sub?: string
 ): Promise<UserInfo> {
-  const config = await getOidcConfig(appConfig);
-  const userinfo = await client.fetchUserInfo(config, accessToken, "");
+  // Fetch userinfo — use the library if we have a sub, otherwise call directly
+  let userSub: string;
+  let email: string | undefined;
+  let name: string | undefined;
+
+  if (sub) {
+    try {
+      const config = await getOidcConfig(appConfig);
+      const userinfo = await client.fetchUserInfo(config, accessToken, sub);
+      userSub = userinfo.sub;
+      email = userinfo.email;
+      name = [userinfo.given_name, userinfo.family_name].filter(Boolean).join(" ") || undefined;
+    } catch {
+      userSub = sub;
+    }
+  } else {
+    // No sub from ID token — call userinfo endpoint directly
+    const userinfoUrl = `${appConfig.mpBaseUrl}/ministryplatformapi/oauth/connect/userinfo`;
+    const res = await fetch(userinfoUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch userinfo: ${res.status}`);
+    }
+    const userinfo = (await res.json()) as Record<string, string>;
+    userSub = userinfo.sub;
+    email = userinfo.email;
+    name = [userinfo.given_name, userinfo.family_name].filter(Boolean).join(" ") || undefined;
+  }
 
   const baseInfo: UserInfo = {
-    sub: userinfo.sub,
-    email: userinfo.email,
-    name: [userinfo.given_name, userinfo.family_name].filter(Boolean).join(" ") || undefined,
+    sub: userSub,
+    email,
+    name,
     userGroupIds: [],
   };
 
@@ -142,7 +176,7 @@ export async function getUserInfo(
 
     // Get the user record by GUID
     const usersRes = await fetch(
-      `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
+      `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userSub}'`)}&$select=User_ID`,
       { headers }
     );
     if (usersRes.ok) {
