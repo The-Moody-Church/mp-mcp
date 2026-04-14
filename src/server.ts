@@ -125,7 +125,7 @@ export function createMcpServer(): McpServer {
       capabilities: {
         tools: {},
       },
-      instructions: PRESENTATION_INSTRUCTIONS,
+      // instructions: PRESENTATION_INSTRUCTIONS, // temporarily disabled to debug reconnect
     }
   );
 
