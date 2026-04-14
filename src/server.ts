@@ -71,6 +71,30 @@ Exercise discretion with financial data. Do not volunteer donation amounts, givi
 
 ### 5. Contact Information
 When presenting a person, focus on: name, contact info (email, phone), engagement (groups, events, participation), and status. This is more useful than raw database metadata.
+
+### 6. Table Schema Quick Reference
+
+**Contacts** — The hub record. Key FK joins: Gender_ID → Genders, Marital_Status_ID → Marital_Statuses, Contact_Status_ID → Contact_Statuses, Household_ID → Households, Household_Position_ID → Household_Positions, Participant_Record → Participants, Donor_Record → Donors, Industry_ID → Industries, Occupation_ID → Occupations, User_Account → dp_Users. Key fields: Display_Name, First_Name, Last_Name, Nickname, Date_of_Birth, Email_Address, Mobile_Phone, Company_Phone.
+
+**Participants** — Involvement tracking. FK joins: Contact_ID → Contacts, Member_Status_ID → Member_Statuses, Participant_Type_ID → Participant_Types. Key fields: Participant_Start_Date, Participant_End_Date, Notes.
+
+**Groups** — Small groups, classes, teams, etc. FK joins: Group_Type_ID → Group_Types, Ministry_ID → Ministries, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Group_Name, Description, Start_Date, End_Date, Meeting_Time.
+
+**Group_Participants** — Who's in which group. FK joins: Group_ID → Groups, Participant_ID → Participants, Group_Role_ID → Group_Roles. Key fields: Start_Date, End_Date, Notes. To find a person's groups: filter by Participant_ID and join Group_ID_Table.Group_Name, Group_Role_ID_Table.Role_Title.
+
+**Events** — Services, classes, meetings. FK joins: Event_Type_ID → Event_Types, Program_ID → Programs, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Event_Title, Event_Start_Date, Event_End_Date, Description, Cancelled.
+
+**Event_Participants** — Attendance/registration. FK joins: Event_ID → Events, Participant_ID → Participants, Participation_Status_ID → Participation_Statuses, Room_ID → Rooms. Key fields: Time_In, Time_Out, Notes.
+
+**Contact_Log** — Notes and interactions. FK joins: Contact_ID → Contacts, Contact_Log_Type_ID → Contact_Log_Types, Made_By → dp_Users. Key fields: Contact_Date, Notes.
+
+**Background_Checks** — Clearances. FK joins: Contact_ID → Contacts, Background_Check_Type_ID → Background_Check_Types, Background_Check_Status_ID → Background_Check_Statuses. Key fields: Background_Check_Submitted, Background_Check_Returned, All_Clear.
+
+**Rooms** — Physical spaces. FK joins: Building_ID → Buildings. Key fields: Room_Name, Room_Number, Maximum_Capacity, Bookable.
+
+**Programs** — Organizational programs. FK joins: Ministry_ID → Ministries, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Program_Name, Start_Date, End_Date.
+
+**Ministries** — Ministry departments. FK joins: Primary_Contact → Contacts, Parent_Ministry → Ministries, Leadership_Team → Groups. Key fields: Ministry_Name, Description.
 `;
 
 /**

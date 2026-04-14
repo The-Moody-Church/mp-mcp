@@ -1,0 +1,3021 @@
+{
+  "Contacts": [
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Company",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, indicates this contact is not a person. Businesses, governments, schools and churches are examples of companies."
+    },
+    {
+      "name": "Company_Name",
+      "type": "nvarchar(50)",
+      "description": "The full name of the company. This may be exactly the same as the Display Name of the company."
+    },
+    {
+      "name": "Display_Name",
+      "type": "nvarchar(125)",
+      "required": true,
+      "description": "For Individuals: \"Last_Name, Nickname\" For Company: \"Company_Name\""
+    },
+    {
+      "name": "Prefix_ID",
+      "type": "int",
+      "fk": "Prefixes",
+      "description": "The title or salutation that applies to this individual used in formal greetings."
+    },
+    {
+      "name": "First_Name",
+      "type": "nvarchar(50)",
+      "description": "The given name of the individual."
+    },
+    {
+      "name": "Middle_Name",
+      "type": "nvarchar(50)",
+      "description": "The middle name of the individual."
+    },
+    {
+      "name": "Last_Name",
+      "type": "varchar(50)",
+      "description": "The family name of the individual."
+    },
+    {
+      "name": "Suffix_ID",
+      "type": "int",
+      "fk": "Suffixes",
+      "description": "The term appended to this persons name to denote generation, education, etc."
+    },
+    {
+      "name": "Nickname",
+      "type": "varchar(50)",
+      "description": "The name this individual prefers to be called.  This value should not be empty for individuals. It may be identical to First Name."
+    },
+    {
+      "name": "Date_of_Birth",
+      "type": "date",
+      "description": "The date when this individual escaped the womb."
+    },
+    {
+      "name": "Gender_ID",
+      "type": "int",
+      "fk": "Genders",
+      "description": "The sex of the individual."
+    },
+    {
+      "name": "Marital_Status_ID",
+      "type": "int",
+      "fk": "Marital_Statuses",
+      "description": "A persons state of being single, married, separated, divorced, or widowed."
+    },
+    {
+      "name": "Contact_Status_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contact_Statuses",
+      "description": "Indicates the over-all status of this contact with respect to the organization."
+    },
+    {
+      "name": "Household_ID",
+      "type": "int",
+      "fk": "Households",
+      "description": "The primary physical residence and immediate family unit to which this contact belongs."
+    },
+    {
+      "name": "Household_Position_ID",
+      "type": "int",
+      "fk": "Household_Positions",
+      "description": "The relationship between this individual and their primary household."
+    },
+    {
+      "name": "Anniversary_Date",
+      "type": "date",
+      "description": "The date when this contact was married to their current spouse."
+    },
+    {
+      "name": "Date_of_Death",
+      "type": "date",
+      "description": "The date when this individual departed from this world."
+    },
+    {
+      "name": "Participant_Record",
+      "type": "int",
+      "fk": "Participants",
+      "description": "The record in MinistryPlatform containing the participation history of this contact within this organization. Group, event, milestone, and response history is found in the participant record."
+    },
+    {
+      "name": "Donor_Record",
+      "type": "int",
+      "fk": "Donors",
+      "description": "The record in MinistryPlatform containing the donation history of this contact within this organization. Pledge history is also found in the donor record."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Contact_Methods",
+      "type": "bit"
+    },
+    {
+      "name": "Email_Address",
+      "type": "varchar(255)",
+      "description": "The email address used by all MinistryPlatform applications for communication with this contact."
+    },
+    {
+      "name": "Mobile_Phone",
+      "type": "nvarchar(25)",
+      "description": "The primary cellular phone for this contact. This phone number is used for text messages sent by MinistryPlatform applications."
+    },
+    {
+      "name": "Company_Phone",
+      "type": "nvarchar(25)",
+      "description": "Format: 999-123-1234 x123"
+    },
+    {
+      "name": "Pager_Phone",
+      "type": "nvarchar(25)",
+      "description": "The telephone number for a small electronic device, capable of receiving short messages."
+    },
+    {
+      "name": "Fax_Phone",
+      "type": "nvarchar(25)",
+      "description": "The telephone number associated with this contact to which facsimile documents can be sent."
+    },
+    {
+      "name": "Facebook_Account",
+      "type": "nvarchar(50)",
+      "description": "A deprecated field which may optionally be used to store the address to the Facebook page for this contact."
+    },
+    {
+      "name": "Twitter_Account",
+      "type": "nvarchar(50)",
+      "description": "A deprecated field which may optionally be used to store the address to the Twitter page for this contact."
+    },
+    {
+      "name": "Professional_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Web_Page",
+      "type": "varchar(2048)",
+      "description": "The address on the World Wide Web to a page about this contact."
+    },
+    {
+      "name": "Industry_ID",
+      "type": "int",
+      "fk": "Industries",
+      "description": "The industry in which this contact is employed or for which this contact has been trained."
+    },
+    {
+      "name": "Occupation_ID",
+      "type": "int",
+      "fk": "Occupations",
+      "description": "The job or position for which this contact has been trained or certified."
+    },
+    {
+      "name": "Current_School",
+      "type": "nvarchar(75)",
+      "description": "The educational institution in which this contact is currently enrolled."
+    },
+    {
+      "name": "HS_Graduation_Year",
+      "type": "smallint",
+      "description": "The year when this contact completed High School."
+    },
+    {
+      "name": "Communication_Preferences",
+      "type": "bit"
+    },
+    {
+      "name": "Bulk_Email_Opt_Out",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Email_Unlisted",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the Contact information visible in the Online Directory Widget will not contain the email address. Certain reports can optionally omit unlisted email addresses."
+    },
+    {
+      "name": "Do_Not_Text",
+      "type": "bit",
+      "required": true,
+      "description": "Set this value to true when a contact expresses a desire to be left out of general or generic text/SMS communications sent to mobile phones."
+    },
+    {
+      "name": "Mobile_Phone_Unlisted",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the Contact information visible in the Online Directory Widget will not contain the mobile phone number. Certain reports can optionally omit unlisted numbers."
+    },
+    {
+      "name": "Remove_From_Directory",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the Contact record will not be visible in the Online Directory Widget, even if the record otherwise qualified to be included."
+    },
+    {
+      "name": "Other_Information",
+      "type": "bit"
+    },
+    {
+      "name": "User_Account",
+      "type": "int",
+      "fk": "dp_Users",
+      "description": "The record containing the user information that allows this contact to authenticate into various MinistryPlatform applications."
+    },
+    {
+      "name": "ID_Card",
+      "type": "varchar(50)",
+      "description": "A number which can be issued to this contact.  It is generally used to assist in identifying this contact via a barcode reader connected to a kiosk running the Check-in application."
+    },
+    {
+      "name": "Contact_GUID",
+      "type": "uniqueidentifier",
+      "required": true,
+      "description": "A unique value automatically assigned to this contact by the MinistryPlatform database. This value may be used by some applications to identify this contact."
+    },
+    {
+      "name": "__ShelbyID",
+      "type": "int"
+    },
+    {
+      "name": "_Contact_Setup_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date and time when this record was started. Often it is the date and time when it was first saved in MinistryPlatform."
+    },
+    {
+      "name": "__Age",
+      "type": "tinyint"
+    },
+    {
+      "name": "__Mobile_Phone_Unformatted",
+      "type": "nvarchar(25)"
+    }
+  ],
+  "Contact_Log": [
+    {
+      "name": "Contact_Log_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The person who was contacted."
+    },
+    {
+      "name": "Contact_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date and time when the contact was made."
+    },
+    {
+      "name": "Contact_Log_Type_ID",
+      "type": "int",
+      "fk": "Contact_Log_Types",
+      "description": "The method used to contact this person."
+    },
+    {
+      "name": "Made_By",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Users",
+      "description": "The person who made the contact."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(2000)",
+      "required": true,
+      "description": "Free-form text notes regarding this contact log entry."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Planned_Contact_ID",
+      "type": "int",
+      "fk": "Planned_Contacts",
+      "description": "If applicable, the Planned Contact type related to this Contact Log entry used primarily with the Portal My Calls workflows."
+    },
+    {
+      "name": "Contact_Successful",
+      "type": "bit",
+      "description": "A flag indicating if this contact attempt was successfully carried out."
+    },
+    {
+      "name": "Original_Contact_Log_Entry",
+      "type": "int",
+      "fk": "Contact_Log",
+      "description": "A recursive and optional entry indicating that this contact log entry was a subsequent entry to a prior contact log entry. For example, the person may have requested a call back or the initial attempt may not have been successful."
+    },
+    {
+      "name": "Feedback_Entry_ID",
+      "type": "int",
+      "fk": "Feedback_Entries",
+      "description": "This value will be populated automatically by MP Mobile to link a contact log entry to the prayer request the user was praying for when they added this contact log entry."
+    }
+  ],
+  "Contact_Log_Types": [
+    {
+      "name": "Contact_Log_Type_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Contact_Log_Type",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The name of the contact log type"
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(500)",
+      "description": "An explanation of the contact log type"
+    }
+  ],
+  "Participants": [
+    {
+      "name": "Participant_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Red_Flag_Notes",
+      "type": "nvarchar(254)",
+      "description": "If populated, Red Flag Notes will be clearly displayed as a Record Fact wherever configured."
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The participant record is an extension of the contact record. It would be unusual to edit this field."
+    },
+    {
+      "name": "Participant_Type_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participant_Types",
+      "description": "The values in this church-defined list reflect how individuals can be related to the church."
+    },
+    {
+      "name": "Member_Status_ID",
+      "type": "int",
+      "fk": "Member_Statuses",
+      "description": "The status of this participant with respect to their membership in this organization."
+    },
+    {
+      "name": "Participant_Engagement_ID",
+      "type": "int",
+      "fk": "Participant_Engagement",
+      "description": "An automatically updated value that tells us to what degree someone is engaged."
+    },
+    {
+      "name": "Participant_Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "Input the date when this person started participating at the church in ANY way."
+    },
+    {
+      "name": "Participant_End_Date",
+      "type": "datetime",
+      "description": "The date when this person ceased participating in the church. In most cases a record with a value in this field should have an inactive or deceased contact status."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(1000)",
+      "description": "Information about this participant that does not belong in any of the sub pages, but would help inform someone about how or why this person participates at the church."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "_First_Attendance_Ever",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the first date when this person attended any event at the church."
+    },
+    {
+      "name": "_Second_Attendance_Ever",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the second date when this person attended any event at the church."
+    },
+    {
+      "name": "_Third_Attendance_Ever",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the third date when this person attended any event at the church."
+    },
+    {
+      "name": "_Last_Attendance_Ever",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the most recent date when this person attended any event at the church."
+    },
+    {
+      "name": "_Background_Check_Information",
+      "type": "bit"
+    },
+    {
+      "name": "_Background_Check_Type",
+      "type": "nvarchar(128)",
+      "description": "The name of the last background check package selected for this individual. Manual is the default if no package is used."
+    },
+    {
+      "name": "_Background_Check_Status",
+      "type": "nvarchar(50)",
+      "description": "The status of the last background check based on the value for the All Clear field and how much time has elapsed since Background Check Returned."
+    },
+    {
+      "name": "_Background_Check_Date",
+      "type": "datetime",
+      "description": "The date the last background check was returned, or if incomplete, when it was started."
+    },
+    {
+      "name": "__Recent_Events",
+      "type": "int",
+      "description": "People with attendance in the past 90 days (based on event participant records) with Event Types included (Omit = False). As for the Events and attendance, it is ANY event with 02 Registered, 03 Attended, or 04 Confirmed in the past 90 days."
+    },
+    {
+      "name": "__In_Group_Life",
+      "type": "bit",
+      "required": true,
+      "description": "People who are currently active in the group (no end date on the group participant record) with Group Types included (Omit = False)."
+    },
+    {
+      "name": "__Is_Leading",
+      "type": "bit",
+      "required": true,
+      "description": "People who are currently active in the group (null or future end date on the group participant record) and has a Group Role Type of Leader."
+    },
+    {
+      "name": "Sacrament_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Church_of_Record",
+      "type": "int",
+      "fk": "Households",
+      "description": "Church where the participant was Baptized."
+    },
+    {
+      "name": "Baptism_Parish_Name",
+      "type": "nvarchar(75)",
+      "description": "Use in lieu of Church of Record to store a text value for baptism parish name."
+    },
+    {
+      "name": "Baptism_Parish_Address",
+      "type": "nvarchar(254)",
+      "description": "Use in lieu of Church of Record to store a text value for baptism parish address."
+    },
+    {
+      "name": "Birth_Certificate_Address",
+      "type": "nvarchar(254)",
+      "description": "Street Address listing where the participant was born."
+    },
+    {
+      "name": "Birth_Certificate_City",
+      "type": "nvarchar(254)",
+      "description": "City listing where the participant was born."
+    },
+    {
+      "name": "Birth_Certificate_State",
+      "type": "nvarchar(15)",
+      "description": "State listing where the participant was born."
+    }
+  ],
+  "Participant_Milestones": [
+    {
+      "name": "Participant_Milestone_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Participant_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participants",
+      "description": "The ID of the participant who is being assigned the milestone."
+    },
+    {
+      "name": "Milestone_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Milestones",
+      "description": "The ID of the milestone that is being associated with the participant."
+    },
+    {
+      "name": "Program_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Programs",
+      "description": "The program (ministry effort) responsible for the assignment and follow up of this milestone."
+    },
+    {
+      "name": "Date_Accomplished",
+      "type": "datetime",
+      "description": "The Date the Milestone was accomplished."
+    },
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "fk": "Events",
+      "description": "The ID of the event where the milestone was achieved."
+    },
+    {
+      "name": "Witness",
+      "type": "int",
+      "fk": "Contacts",
+      "description": "The contact record of the person who witnessed this milestone."
+    },
+    {
+      "name": "At_Prior_Church",
+      "type": "bit",
+      "required": true,
+      "description": "Was this Milestone accomplished at a prior church?"
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(2000)",
+      "description": "Notes about how the Milestone was accomplished."
+    },
+    {
+      "name": "Followed_Up",
+      "type": "bit",
+      "required": true,
+      "description": "Was this person followed up with?"
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Discontinue_Journey",
+      "type": "bit",
+      "required": true,
+      "description": "When true, this Milestone is no longer actively used and will be hidden in the default drop down lists or views."
+    },
+    {
+      "name": "Sacramental_Info",
+      "type": "bit"
+    },
+    {
+      "name": "Performed_By",
+      "type": "nvarchar(150)",
+      "description": "This is the celebrant."
+    },
+    {
+      "name": "Place",
+      "type": "nvarchar(255)",
+      "description": "This is the place the Sacrament was received."
+    },
+    {
+      "name": "Sacramental_Name",
+      "type": "nvarchar(150)",
+      "description": "The name given to them when they received the Sacrament."
+    },
+    {
+      "name": "Received",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, indicates this Sacrament has been received."
+    },
+    {
+      "name": "Registry_Volume",
+      "type": "int",
+      "description": "The Registry Volume where this Sacrament is recorded."
+    },
+    {
+      "name": "Registry_Page",
+      "type": "int",
+      "description": "The page in the Registry Volume where this Sacrament is recorded."
+    },
+    {
+      "name": "Registry_Number",
+      "type": "int",
+      "description": "The number in the Registry Volume where this Sacrament is recorded."
+    },
+    {
+      "name": "Certificate_Text_Values",
+      "type": "bit"
+    },
+    {
+      "name": "Witness_1",
+      "type": "nvarchar(254)",
+      "description": "This is where you record the first witness."
+    },
+    {
+      "name": "Witness_2",
+      "type": "nvarchar(254)",
+      "description": "This is where you record the second witness."
+    },
+    {
+      "name": "Person_1",
+      "type": "nvarchar(254)",
+      "description": "This is the Sponsor, God Parent, Matron of Honor, or Best Man."
+    },
+    {
+      "name": "Person_2",
+      "type": "nvarchar(254)",
+      "description": "This is the Sponsor, God Parent, Matron of Honor, or Best Man."
+    },
+    {
+      "name": "If_Baptism_Certificate",
+      "type": "bit"
+    },
+    {
+      "name": "Mother_Name",
+      "type": "nvarchar(254)",
+      "description": "This is the Mother's current name."
+    },
+    {
+      "name": "Mother_Maiden_Name",
+      "type": "nvarchar(254)",
+      "description": "This is the Mother's maiden name."
+    },
+    {
+      "name": "Mother_Religion",
+      "type": "nvarchar(254)",
+      "description": "Indicate the Mother's religion."
+    },
+    {
+      "name": "Father_Name",
+      "type": "nvarchar(254)",
+      "description": "This is the Father's name."
+    },
+    {
+      "name": "Father_Religion",
+      "type": "nvarchar(254)",
+      "description": "Indicate the Father's religion."
+    },
+    {
+      "name": "If_Marriage_Certificate",
+      "type": "bit"
+    },
+    {
+      "name": "Spouse_Name",
+      "type": "nvarchar(150)",
+      "description": "The full name of the Spouse."
+    },
+    {
+      "name": "Spouse_Baptism",
+      "type": "nvarchar(150)",
+      "description": "A text value for Spouse's baptism."
+    },
+    {
+      "name": "Spouse_Baptism_Church",
+      "type": "nvarchar(150)",
+      "description": "A text value for baptism church name as relates to Spouse."
+    },
+    {
+      "name": "Spouse_Baptism_Street",
+      "type": "nvarchar(150)",
+      "description": "A text value for baptism street address as relates to Spouse."
+    },
+    {
+      "name": "Spouse_Baptism_City",
+      "type": "nvarchar(150)",
+      "description": "A text value for baptism city as relates to Spouse."
+    },
+    {
+      "name": "Spouse_Baptism_State",
+      "type": "nvarchar(75)",
+      "description": "A text value for baptism state as relates to Spouse."
+    },
+    {
+      "name": "Spouse_Baptism_Zip",
+      "type": "nvarchar(75)",
+      "description": "A text value for baptism zip as relates to Spouse."
+    },
+    {
+      "name": "Spouse_Parent_1",
+      "type": "nvarchar(150)",
+      "description": "Indicate the first parent of Spouse."
+    },
+    {
+      "name": "Spouse_Parent_2",
+      "type": "nvarchar(150)",
+      "description": "Indicate the second parent of Spouse."
+    }
+  ],
+  "Participant_Certifications": [
+    {
+      "name": "Participant_Certification_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Participant_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participants",
+      "description": "The Participant record of the volunteer completing the Certification."
+    },
+    {
+      "name": "Certification_Type_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Certification_Types",
+      "description": "The type of Certification."
+    },
+    {
+      "name": "Certification_Submitted",
+      "type": "datetime",
+      "required": true,
+      "description": "The date this Certification was submitted to the Provider."
+    },
+    {
+      "name": "Certification_Completed",
+      "type": "datetime",
+      "description": "The date this Certification was completed. Set by the Certification Provider upon completion."
+    },
+    {
+      "name": "Passed",
+      "type": "bit",
+      "description": "A flag indicating whether this Participant has passed the Certification."
+    },
+    {
+      "name": "Certification_Expires",
+      "type": "datetime",
+      "description": "The date this Certification expires. Set by a nightly routine based on the Certification Type. You may manually set a date if an exception is necessary for a particular participant’s Certification."
+    },
+    {
+      "name": "Certification_GUID",
+      "type": "uniqueidentifier",
+      "required": true,
+      "description": "The unique identifier used to identify this Participant Certification with the Certification Provider."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(500)",
+      "description": "Free-form notes possibly provided by the Certification Provider (e.g., URL to certificate)."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    }
+  ],
+  "Member_Statuses": [
+    {
+      "name": "Member_Status_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Member_Status",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The status of this participant with respect to their membership in this organization."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Can_Access_Directory",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, Participants with this Member Status can access the Directory (Note: The assigned Participant Type must also allow access)."
+    },
+    {
+      "name": "Show_In_Directory",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, Participants with this Member Status will show in the Directory unless the Contact has chosen to be removed from the Directory."
+    }
+  ],
+  "Groups": [
+    {
+      "name": "Group_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Group_Name",
+      "type": "nvarchar(75)",
+      "required": true,
+      "description": "The friendly name that will describe this group on the public group finder."
+    },
+    {
+      "name": "Group_Type_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Types",
+      "description": "The group type will determine how this group is presented in various tools availble to the public."
+    },
+    {
+      "name": "Ministry_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Ministries",
+      "description": "The ministry that is responsible for this group or team."
+    },
+    {
+      "name": "Congregation_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Congregations",
+      "description": "The congregation to which this specific team is assigned or where the majority of group members worship."
+    },
+    {
+      "name": "Primary_Contact",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The person who will be resonsible for communication to this group."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(2000)",
+      "description": "Detail the purpose of this group and who might want to join. This information will appear on the public group finder."
+    },
+    {
+      "name": "Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The approximate date when this group came into existence."
+    },
+    {
+      "name": "End_Date",
+      "type": "datetime",
+      "description": "The approximate date when this group ceased to meet or came to an end. Group Participant End Dates are automatically assigned if they don't already have an End Date."
+    },
+    {
+      "name": "Target_Size",
+      "type": "smallint",
+      "description": "The desired number of members for this group.  Once exceeded, this group will no longer appear on the public group finder."
+    },
+    {
+      "name": "Parent_Group",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The group to which this group reports."
+    },
+    {
+      "name": "Priority_ID",
+      "type": "int",
+      "fk": "Priorities",
+      "description": "The primary priority of the church that this group exists to meet."
+    },
+    {
+      "name": "Small_Group_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Offsite_Meeting_Address",
+      "type": "int",
+      "fk": "Addresses",
+      "description": "The location where most group meetings take place."
+    },
+    {
+      "name": "Group_Is_Full",
+      "type": "bit",
+      "required": true,
+      "description": "A group that is full is no longer accepting new participants. When true, this group will not appear on the group finder."
+    },
+    {
+      "name": "Available_Online",
+      "type": "bit",
+      "required": true,
+      "description": "This field controls whether this group is available on the Portals Group Finder and MyGroups page as well as the Group Manager on Mobile Tools."
+    },
+    {
+      "name": "Meets_Online",
+      "type": "bit",
+      "required": true,
+      "description": "If true, this Group will show as meets online on the Group Finder and Details Widgets."
+    },
+    {
+      "name": "Life_Stage_ID",
+      "type": "int",
+      "fk": "Life_Stages",
+      "description": "Visitors to the public portal who use the group finder will be able to search for a group based upon the values in this list which typically describe the age, employment, or marital status of those who are likely to participate in this group."
+    },
+    {
+      "name": "Group_Focus_ID",
+      "type": "int",
+      "fk": "Group_Focuses",
+      "description": "Visitors to the public portal who use the group finder will be able to search for a group based upon the values in this list which typically describe the topics covered when this group meets."
+    },
+    {
+      "name": "Meeting_Time",
+      "type": "time",
+      "description": "Select the time this Group normally meets based on the time zone of the Congregation. Required if you set \"Create Next Meeting\" to True."
+    },
+    {
+      "name": "Meeting_Day_ID",
+      "type": "int",
+      "fk": "Meeting_Days",
+      "description": "Select the day of the week this Group normally meets. Required if you set “Create Next Meeting” to True."
+    },
+    {
+      "name": "Meeting_Frequency_ID",
+      "type": "int",
+      "fk": "Meeting_Frequencies",
+      "description": "Select how often the Group meets. The Group Attendance routine only supports weekly frequencies. If blank and “Create Next Meeting” is True, the routine assumes the Group meets weekly."
+    },
+    {
+      "name": "Meeting_Duration_ID",
+      "type": "int",
+      "fk": "Meeting_Durations",
+      "description": "Select the normal length of Group meetings. If blank and “Create Next Meeting” is True, the Group Attendance routine assumes the Group meetings last 60 minutes."
+    },
+    {
+      "name": "Required_Book",
+      "type": "int",
+      "fk": "Books",
+      "description": "The value selected from this list identifies the book this group is studying together."
+    },
+    {
+      "name": "Descended_From",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The group that multiplied to start this group."
+    },
+    {
+      "name": "Reason_Ended",
+      "type": "int",
+      "fk": "Group_Ended_Reasons",
+      "description": "The value selected from this list describes the reason this group no longer meets. If this value is populated the End Date should be as well."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "_Last_Attendance_Posted",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the last date when attendance was posted for this group."
+    },
+    {
+      "name": "_Last_Group_Member_Changed",
+      "type": "datetime",
+      "description": "A read only field updated by a nightly routine indicating the last date when a member of this group was changed, added, or end-dated."
+    },
+    {
+      "name": "Check_in_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Secure_Check-in",
+      "type": "bit",
+      "required": true,
+      "description": "When set to true, Participants who check into this group will be issued secured name tags."
+    },
+    {
+      "name": "Suppress_Nametag",
+      "type": "bit",
+      "required": true,
+      "description": "When set to true, individuals who are issued secured name tags will only get two security tags instead of three."
+    },
+    {
+      "name": "Suppress_Care_Note",
+      "type": "bit",
+      "required": true,
+      "description": "The Care Note prompt works for secure groups when enabled by a configuration setting. This field allows it to be suppressed if needed for this group."
+    },
+    {
+      "name": "On_Classroom_Manager",
+      "type": "bit",
+      "required": true,
+      "description": "When this value is true, leaders will be able to manage this group from the Classroom Manager application which allows for a heads up display, attendance taking, and much more."
+    },
+    {
+      "name": "Promotion_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Promote_to_Group",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The group to which the participants of this group will move once they age out, or graduate out, of this group."
+    },
+    {
+      "name": "Age_in_Months_to_Promote",
+      "type": "int",
+      "description": "The value in this field defines the number of months of age a participant must reach to be automatically moved by a nightly routine to the group set in the Promote to Group field."
+    },
+    {
+      "name": "Promote_Weekly",
+      "type": "bit",
+      "required": true,
+      "description": "When true, this group will automatically promote members to the \"Promote To Group\" when they reach the \"Age in Months to Promote\" value."
+    },
+    {
+      "name": "Promotion_Date",
+      "type": "date",
+      "description": "The future date when all individuals in this group should be promoted. Will happen only if Promote_to_Group is populated and Promote_Weekly is not."
+    },
+    {
+      "name": "Promote_Participants_Only",
+      "type": "bit",
+      "required": true,
+      "description": "If Promotion_Date is set and this value is true, then on the promotion date only participants will be promoted. Servants and Leaders will not."
+    },
+    {
+      "name": "Notifications",
+      "type": "bit"
+    },
+    {
+      "name": "Send_Attendance_Notification",
+      "type": "bit",
+      "required": true,
+      "description": "When True, the contact person of this Group will receive an email reminder to post attendance for this Group after each scheduled meeting."
+    },
+    {
+      "name": "Send_Service_Notification",
+      "type": "bit",
+      "required": true,
+      "description": "When set to true, the servants and leaders within this group will be sent an email weekly reminding them of upcoming events where this group is scheduled."
+    },
+    {
+      "name": "Enable_Discussion",
+      "type": "bit",
+      "required": true,
+      "description": "Deprecated, no longer in use."
+    },
+    {
+      "name": "SMS_Number",
+      "type": "int",
+      "fk": "dp_SMS_Numbers",
+      "description": "The SMS Number that this Group can use to send outgoing text messages from GroupLife."
+    },
+    {
+      "name": "Default_Meeting_Room",
+      "type": "int",
+      "fk": "Rooms",
+      "description": "The Room used for regular Group meetings. Used to create the next scheduled meeting."
+    },
+    {
+      "name": "Create_Next_Meeting",
+      "type": "bit",
+      "required": true,
+      "description": "If true, a nightly routine will create the next meeting and advance the Next Schedule Meeting date automatically. Set to False to stop or pause the routine from creating Events."
+    },
+    {
+      "name": "Next_Scheduled_Meeting",
+      "type": "datetime",
+      "description": "The date of the next event into which this group is scheduled. You may manually add a future date and a nightly routine will create the event if it doesn't exist. If the value is in the past and Create Next Meeting is true, a nightly routine will advance this date and create the very next Event based on Meeting Day, Frequency, and Duration."
+    },
+    {
+      "name": "Available_On_App",
+      "type": "bit",
+      "description": "PocketPlatform Only: Allow this group to use Group Management features in PocketPlatform."
+    }
+  ],
+  "Group_Participants": [
+    {
+      "name": "Group_Participant_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Group_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Groups",
+      "description": "The group this participant is associated with."
+    },
+    {
+      "name": "Participant_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participants",
+      "description": "The participant associated with this group."
+    },
+    {
+      "name": "Group_Role_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Roles",
+      "description": "The group role this participant has within the group."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date the participant joined the group."
+    },
+    {
+      "name": "End_Date",
+      "type": "datetime",
+      "description": "The date the participant stopped participating in the group."
+    },
+    {
+      "name": "Employee_Role",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the group participant is an employee."
+    },
+    {
+      "name": "Hours_Per_Week",
+      "type": "smallint",
+      "description": "The hours per week the participant will be involved in this group."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(500)",
+      "description": "Notes associated with this group participant."
+    },
+    {
+      "name": "Need_Book",
+      "type": "bit",
+      "required": true,
+      "description": "Whether or not this group requires a book."
+    },
+    {
+      "name": "Email_Opt_Out",
+      "type": "bit",
+      "required": true,
+      "description": "Whether or not this person has opted out of email for this group."
+    },
+    {
+      "name": "Share_With_Group",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Auto_Promote",
+      "type": "bit",
+      "required": true,
+      "description": "If this group is subject to automatic promotion, set this value to false so that this group participant will be left in the group. This value should generally be true even if the group is not subject to auto promotion."
+    },
+    {
+      "name": "_First_Attendance",
+      "type": "datetime",
+      "description": "The first time event attendance was logged for this group participant."
+    },
+    {
+      "name": "_Second_Attendance",
+      "type": "datetime",
+      "description": "The second time event attendance was logged for this group participant."
+    },
+    {
+      "name": "_Third_Attendance",
+      "type": "datetime",
+      "description": "The third time event attendance was logged for this group participant."
+    },
+    {
+      "name": "_Last_Attendance",
+      "type": "datetime",
+      "description": "The most recent time event attendance was logged for this group participant."
+    },
+    {
+      "name": "Show_Email",
+      "type": "bit",
+      "required": true,
+      "description": "PocketPlatform Only: Show participant's email address to other group participants within Group Management features in PocketPlatform."
+    },
+    {
+      "name": "Show_Phone",
+      "type": "bit",
+      "required": true,
+      "description": "PocketPlatform Only: Show participant's mobile phone to other group participants within Group Management features in PocketPlatform."
+    },
+    {
+      "name": "Show_Last_Name",
+      "type": "bit",
+      "required": true,
+      "description": "PocketPlatform Only: Show participant's last name to other group participants within Group Management features in PocketPlatform."
+    },
+    {
+      "name": "Show_Photo",
+      "type": "bit",
+      "required": true,
+      "description": "PocketPlatform Only: Show participant's photo to other group participants within Group Management features in PocketPlatform."
+    },
+    {
+      "name": "__Cleanup_Wait_Count",
+      "type": "int",
+      "required": true,
+      "description": "Do not modify. Used to clean up abandoned Group_Participants"
+    }
+  ],
+  "Group_Types": [
+    {
+      "name": "Group_Type_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Group_Type",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The name of the group type"
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "An explanation of the group type"
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Default_Role",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Roles",
+      "description": "The default role, used by various applications when adding new members to groups of this type."
+    },
+    {
+      "name": "Activity_Log_Start_Date",
+      "type": "bit",
+      "required": true,
+      "description": "If set to yes/true the activity will log a current member of these groups with the date they joined the group instead of todays date."
+    },
+    {
+      "name": "Show_On_Group_Finder",
+      "type": "bit",
+      "required": true,
+      "description": "If set to yes, groups of this type can be set to be visible on the Group Finder."
+    },
+    {
+      "name": "Show_On_MPMobile",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Omit_From_Engagement_Group_Life",
+      "type": "bit",
+      "required": true,
+      "description": "If false, Groups with this Group Type will be included in the Participant Engagement routine."
+    }
+  ],
+  "Group_Roles": [
+    {
+      "name": "Group_Role_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Role_Title",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The title of the Group role, appears in reports and as a token in Checkin."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "An explanation of the group role"
+    },
+    {
+      "name": "Group_Role_Type_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Role_Types",
+      "description": "The name of the group role type"
+    },
+    {
+      "name": "Group_Role_Direction_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Role_Directions",
+      "description": "Internal informational field to determine if this role is focused outside the church or within the church."
+    },
+    {
+      "name": "Group_Role_Intensity_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Group_Role_Intensities",
+      "description": "Internal informational field to quantify the commitment this role takes to fulfill."
+    },
+    {
+      "name": "Ministry_ID",
+      "type": "int",
+      "fk": "Ministries",
+      "description": "This role is specific to a ministry."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Background_Check_Required",
+      "type": "bit",
+      "required": true,
+      "description": "If someone has this role, they need to have a current background check on file. This field will affect various views and reports in regards to who needs background checks."
+    },
+    {
+      "name": "Omit_From_Portal",
+      "type": "bit",
+      "description": "Determines if this role will appear in various drop-downs on the portal. Specifically, the roles available to a group leader when placing someone in their group."
+    },
+    {
+      "name": "Manages_Volunteers",
+      "type": "bit",
+      "required": true,
+      "description": "If this field is set to true, all individuals with this Group Role will have access to Compliance Alerts and can accept new Applicants in GroupLife."
+    }
+  ],
+  "Group_Role_Types": [
+    {
+      "name": "Group_Role_Type_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Group_Role_Type",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The name of the group role type"
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "An explanation of the group role type"
+    }
+  ],
+  "Events": [
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Event_Title",
+      "type": "nvarchar(75)",
+      "required": true,
+      "description": "The friendly name that will describe this event on the calendar."
+    },
+    {
+      "name": "Event_Type_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Event_Types",
+      "description": "A church-specific list used to categorize or group events."
+    },
+    {
+      "name": "Congregation_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Congregations",
+      "description": "The unit within the organization that is expected to participate in this event. This may be a language group, venue, or campus."
+    },
+    {
+      "name": "Location_ID",
+      "type": "int",
+      "fk": "Locations",
+      "description": "The physical place where the event will take place."
+    },
+    {
+      "name": "Meeting_Instructions",
+      "type": "nvarchar(4000)",
+      "description": "Information the participants in this event will need in order to participate in the event."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(2000)",
+      "description": "A brief paragraph further explaining the purpose of the event. Promotional text about the event goes here."
+    },
+    {
+      "name": "Program_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Programs",
+      "description": "The ongoing ministry effort of which this Event is a part. The ministry department overseeing the event is sourced from the Program."
+    },
+    {
+      "name": "Primary_Contact",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The person responsible for planning this event and answering questions about it."
+    },
+    {
+      "name": "Participants_Expected",
+      "type": "int",
+      "description": "The number of people expected at this Event. Also, the maximum number of people who can register for this Event. If some are attending online and others physically, number should only include those physically attending."
+    },
+    {
+      "name": "Minutes_for_Setup",
+      "type": "smallint",
+      "required": true,
+      "description": "The number of minutes before this event during which rooms and equipment must be reserved."
+    },
+    {
+      "name": "Event_Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date and time when this event will begin."
+    },
+    {
+      "name": "Event_End_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date and time when this event will end."
+    },
+    {
+      "name": "Minutes_for_Cleanup",
+      "type": "smallint",
+      "required": true,
+      "description": "The number of minutes after this event during which rooms and equipment must remain reserved."
+    },
+    {
+      "name": "Cancelled",
+      "type": "bit",
+      "required": true,
+      "description": "An indication that a previously scheduled event must remain on the calendar, but should be marked as cancelled which will automatically release reserved rooms and equipment."
+    },
+    {
+      "name": "_Approved",
+      "type": "bit",
+      "description": "An indication as to whether the approval process has been completed for the event. Events will not appear on the public calendar until approved."
+    },
+    {
+      "name": "Public_Website_Settings",
+      "type": "bit"
+    },
+    {
+      "name": "Visibility_Level_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Visibility_Levels",
+      "description": "An indication of the audience for which the event is intended. Public events will appear on the public calendar."
+    },
+    {
+      "name": "Featured_On_Calendar",
+      "type": "bit",
+      "required": true,
+      "description": "An indication that this event is special or warrants promotion. It is not part of regular weekly programming and should be easily highlighted to the public."
+    },
+    {
+      "name": "Online_Registration_Product",
+      "type": "int",
+      "fk": "Products",
+      "description": "The product associated with the event which is required for online registration and controls the cost and cost-related options for registration. Required even if event is free or no cost."
+    },
+    {
+      "name": "Registration_Form",
+      "type": "int",
+      "fk": "Forms",
+      "description": "A custom form allowing the church to capture additional, non-financial information about the person as they register for the event."
+    },
+    {
+      "name": "Registration_Start",
+      "type": "datetime",
+      "description": "The date and time when registration for this event can begin. Leave blank if individuals can begin to register as soon as the event is visible on the public calendar."
+    },
+    {
+      "name": "Registration_End",
+      "type": "datetime",
+      "description": "The date and time when registration for this event will close automatically. Leave blank if individuals can register up till the beginning of the event."
+    },
+    {
+      "name": "Registration_Active",
+      "type": "bit",
+      "required": true,
+      "description": "An on/off switch for online registrations. It will automatically be set to off when registrations reach the value in Participants Expected."
+    },
+    {
+      "name": "Register_Into_Series",
+      "type": "bit",
+      "required": true,
+      "description": "If set to true, the registrants will be added to future events in this event series automatically."
+    },
+    {
+      "name": "External_Registration_URL",
+      "type": "varchar(2048)",
+      "description": "An optional URL to a registration form in a third party application which will facilitate event registrations. The third party application may or may not be integrated with MinistryPlatform."
+    },
+    {
+      "name": "_Web_Approved",
+      "type": "bit",
+      "description": "An additional approval flag controlling whether an event is visible on the public calendar."
+    },
+    {
+      "name": "Force_Login",
+      "type": "bit",
+      "required": true,
+      "description": "When set to true, this event will require users to login before registering."
+    },
+    {
+      "name": "Check-in_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Allow_Check-in",
+      "type": "bit",
+      "required": true,
+      "description": "An indication as to whether this event will be added to the scope of the check-in application."
+    },
+    {
+      "name": "Ignore_Program_Groups",
+      "type": "bit",
+      "required": true,
+      "description": "An indication as to whether this event will have the groups associated with the parent program in scope for check-in.  When true, only people in groups and registrants of the event can check in."
+    },
+    {
+      "name": "Prohibit_Guests",
+      "type": "bit",
+      "required": true,
+      "description": "This field has been deprecated."
+    },
+    {
+      "name": "Search_Results",
+      "type": "int",
+      "required": true,
+      "fk": "Checkin_Search_Results_Types"
+    },
+    {
+      "name": "Early_Check-in_Period",
+      "type": "smallint",
+      "description": "The number of minutes before the event start time when individuals can check themselves in at an unattended station. Leave blank if the default value of 60 minutes is acceptable."
+    },
+    {
+      "name": "Late_Check-in_Period",
+      "type": "smallint",
+      "description": "The number of minutes after the event start time when individuals can check themselves in at an unattended station. Leave blank if the default value of 30 minutes is acceptable."
+    },
+    {
+      "name": "Notification_Settings",
+      "type": "bit"
+    },
+    {
+      "name": "Registrant_Message",
+      "type": "int",
+      "fk": "dp_Communication_Templates",
+      "description": "Create a new Template and set it here.  A Message will be sent to each registrant using the appropriate template. This runs every 15 minutes."
+    },
+    {
+      "name": "Days_Out_to_Remind",
+      "type": "int",
+      "description": "Set the number of days before this event when registrants should be reminded about the event."
+    },
+    {
+      "name": "Optional_Reminder_Message",
+      "type": "int",
+      "fk": "dp_Communication_Templates",
+      "description": "If a special reminder Template is created for this Event, set it here. If there is a value in Days out to Remind, the template will be sent as a Message to all Registered individuals. This runs every night."
+    },
+    {
+      "name": "Attendee_Message",
+      "type": "int",
+      "fk": "dp_Communication_Templates",
+      "description": "Create a Template and associate it here. A message using that Template will be sent after the event ends to those who have a participation status of attended or confirmed. This runs every 15 minutes."
+    },
+    {
+      "name": "Send_To_Heads",
+      "type": "bit",
+      "required": true,
+      "description": "If set to true, the registrant and all of the Heads of Household and Non-Custodials will be sent an email."
+    },
+    {
+      "name": "Other_Event_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Parent_Event_ID",
+      "type": "int",
+      "fk": "Events",
+      "description": "A deprecated field that is ignored by all Think Ministry applications. It allows an event to be associated with another event. It is not related to events in a series."
+    },
+    {
+      "name": "Priority_ID",
+      "type": "int",
+      "fk": "Priorities",
+      "description": "The defined priority of this organization that justifies this event. The primary purpose of this event."
+    },
+    {
+      "name": "On_Connection_Card",
+      "type": "bit",
+      "required": true,
+      "description": "An indication as to whether the event will be available to users of the Connection Card Tool."
+    },
+    {
+      "name": "Accounting_Information",
+      "type": "bit"
+    },
+    {
+      "name": "On_Donation_Batch_Tool",
+      "type": "bit",
+      "required": true,
+      "description": "An indication as to whether the event will be available to users of the Donation Batch Tool."
+    },
+    {
+      "name": "Project_Code",
+      "type": "nvarchar(15)",
+      "description": "The project code is typically used for integration or reporting for your accounting system."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "__Reservation_Start",
+      "type": "datetime",
+      "description": "A computed and hidden field which indicates the starting date and time when resources associated with this event are booked."
+    },
+    {
+      "name": "__Reservation_End",
+      "type": "datetime",
+      "description": "A computed, hidden field which indicates the ending date and time when resources associated with this event are booked."
+    },
+    {
+      "name": "Online_Meeting_Link",
+      "type": "nvarchar(2083)",
+      "description": "A link to an online conference call that this Event will use, currently visible to Group Leaders via GroupLife."
+    },
+    {
+      "name": "Read_More_URL",
+      "type": "nvarchar(1000)",
+      "description": "PocketPlatform Only: Use this field to show an extra button on the Event Detail screen that opens the specified URL in the device browser."
+    },
+    {
+      "name": "Allow_Self_Checkin",
+      "type": "bit",
+      "required": true,
+      "description": "PocketPlatform Only: Allow users to use Self Checkin feature to mark themselves as attending this event."
+    },
+    {
+      "name": "Minor_Registration",
+      "type": "bit",
+      "required": true,
+      "description": "If true, Date of Birth will be required and registration labels will clarify Parent/Guardian vs Attendee during registration."
+    },
+    {
+      "name": "Allow_Email",
+      "type": "bit",
+      "required": true,
+      "description": "If true, the individual listed as the Event Contact can be emailed directly via the Event Details widget. Note: this provides the ability for ANYONE to contact that individual, so use with caution!"
+    },
+    {
+      "name": "Show_Building_Room_Info",
+      "type": "bit",
+      "required": true,
+      "description": "If true, Building and Room information will be visible on the Event Details widget."
+    }
+  ],
+  "Event_Participants": [
+    {
+      "name": "Event_Participant_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Events",
+      "description": "The Event the participant is associated with."
+    },
+    {
+      "name": "Participant_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participants",
+      "description": "The Participant associated with this event."
+    },
+    {
+      "name": "Participation_Status_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Participation_Statuses",
+      "description": "The Participation Status of this event participant."
+    },
+    {
+      "name": "Time_In",
+      "type": "datetime",
+      "description": "The time this participant checked into the event."
+    },
+    {
+      "name": "Time_Confirmed",
+      "type": "datetime",
+      "description": "The time this participants attendance was confirmed."
+    },
+    {
+      "name": "Time_Out",
+      "type": "datetime",
+      "description": "The time this participant checked-out of the event."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(4000)",
+      "description": "Notes associated with this event participant; if registered online, registration-related notes appear here."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Group_Participant_ID",
+      "type": "int",
+      "fk": "Group_Participants",
+      "description": "The Group Participant this event participant is associated with."
+    },
+    {
+      "name": "Check-in_Station",
+      "type": "nvarchar(50)",
+      "description": "The check-in station this event participant used."
+    },
+    {
+      "name": "_Setup_Date",
+      "type": "datetime",
+      "description": "Date the Participant registered for the Event."
+    },
+    {
+      "name": "Group_ID",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The Group this event participant is associated with."
+    },
+    {
+      "name": "Room_ID",
+      "type": "int",
+      "fk": "Rooms",
+      "description": "The Room this participants group is associated with."
+    },
+    {
+      "name": "Call_Parents",
+      "type": "bit",
+      "description": "A field available to be used in custom development of the Call Parents functionality in Classroom Manager."
+    },
+    {
+      "name": "Group_Role_ID",
+      "type": "int",
+      "fk": "Group_Roles",
+      "description": "The Group Role this event participant has."
+    },
+    {
+      "name": "Response_ID",
+      "type": "int",
+      "fk": "Responses",
+      "description": "If applicable, the Response record of the Opportunity that was configured to Add to Event those that responded."
+    },
+    {
+      "name": "Registrant_Message_Sent",
+      "type": "bit",
+      "required": true,
+      "description": "Bit field to track if the Registrant Notification email was sent. (Routine runs every 15 minutes.)"
+    },
+    {
+      "name": "Attendee_Message_Sent",
+      "type": "bit",
+      "required": true,
+      "description": "Bit field to track if the Attendee Notification email was sent. (Routine runs every 15 minutes.)"
+    },
+    {
+      "name": "Attending_Online",
+      "type": "bit",
+      "required": true,
+      "description": "If true, this Participant will not be physically present at the Event, but attending virtually. Set manually or based on Option Price selection."
+    }
+  ],
+  "Event_Metrics": [
+    {
+      "name": "Event_Metric_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Events",
+      "description": "The Event this metric is for."
+    },
+    {
+      "name": "Metric_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Metrics",
+      "description": "The metric recorded for this Event."
+    },
+    {
+      "name": "Numerical_Value",
+      "type": "numeric",
+      "required": true,
+      "description": "The number value of this metric."
+    },
+    {
+      "name": "Group_ID",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The Group associated with this event metric."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    }
+  ],
+  "Event_Rooms": [
+    {
+      "name": "Event_Room_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Events",
+      "description": "The Event associated with this room reservation."
+    },
+    {
+      "name": "Room_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Rooms",
+      "description": "The Room this reservation is for."
+    },
+    {
+      "name": "Check_In_Suite Options",
+      "type": "bit"
+    },
+    {
+      "name": "Group_ID",
+      "type": "int",
+      "fk": "Groups",
+      "description": "The Group that will be using this Room for this Event."
+    },
+    {
+      "name": "Default_Group_Room",
+      "type": "bit",
+      "description": "The default room for this Group."
+    },
+    {
+      "name": "Balance_Priority",
+      "type": "int",
+      "required": true,
+      "description": "For balancing Participants between Rooms. If none, set to 0. To fill one completely, then fill other: set first to 0, then other to 1. To fill evenly, back and forth: set both as 0."
+    },
+    {
+      "name": "Closed",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the Room will not be available for Participants to check into regardless of other settings."
+    },
+    {
+      "name": "Auto_Close_At_Capacity",
+      "type": "bit",
+      "required": true,
+      "description": "If true, the Room will automatically be set to Closed = True when the Max Capacity set on the Room record is met by the number of participants checked in."
+    },
+    {
+      "name": "Room_Reservation_Options",
+      "type": "bit"
+    },
+    {
+      "name": "Room_Layout_ID",
+      "type": "int",
+      "fk": "Room_Layouts",
+      "description": "The Room Layout associated with this room reservation."
+    },
+    {
+      "name": "Chairs",
+      "type": "smallint",
+      "description": "The number of chairs needed for this events room reservation."
+    },
+    {
+      "name": "Tables",
+      "type": "smallint",
+      "description": "The number of tables needed for this events room reservation."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(max)",
+      "description": "Notes for this events room reservation."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "_Approved",
+      "type": "bit",
+      "description": "The approval status of this room reservation."
+    },
+    {
+      "name": "__Start_Time_Offset",
+      "type": "smallint"
+    },
+    {
+      "name": "__End_Time_Offset",
+      "type": "smallint"
+    },
+    {
+      "name": "Cancelled",
+      "type": "bit",
+      "required": true,
+      "description": "The cancellation status of this room reservation."
+    },
+    {
+      "name": "__Primary_Reservation",
+      "type": "bit",
+      "required": true,
+      "description": "This flag will help reports and views to determine which reservation to pull first in order to accommodate multiple groups sharing a room or multiple rooms associated with one event."
+    }
+  ],
+  "Rooms": [
+    {
+      "name": "Room_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Room_Name",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The friendly name for this room."
+    },
+    {
+      "name": "Room_Number",
+      "type": "nvarchar(15)",
+      "description": "The room number associated with this room."
+    },
+    {
+      "name": "Building_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Buildings",
+      "description": "The building this room is located in."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "A brief description of the room."
+    },
+    {
+      "name": "Maximum_Capacity",
+      "type": "smallint",
+      "required": true,
+      "description": "The maximum number of people the room can safely accommodate."
+    },
+    {
+      "name": "Default_Room_Layout",
+      "type": "int",
+      "fk": "Room_Layouts",
+      "description": "The standard layout for this room if no other request is made."
+    },
+    {
+      "name": "Room_Usage_Type_ID",
+      "type": "int",
+      "fk": "Room_Usage_Types",
+      "description": "The type of room this space is or the type of use this room is for."
+    },
+    {
+      "name": "Bookable",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, the room is available for reservations."
+    },
+    {
+      "name": "Last_Remodel_Date",
+      "type": "datetime",
+      "description": "The last time the room was remodeled."
+    },
+    {
+      "name": "Parent_Room_ID",
+      "type": "int",
+      "fk": "Rooms",
+      "description": "The larger room this smaller room is \"under\" or a part of."
+    },
+    {
+      "name": "__EMSID",
+      "type": "int"
+    },
+    {
+      "name": "Auto_Approve",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, a reservation for this room skips the approval process."
+    },
+    {
+      "name": "Print_Server_ID",
+      "type": "int",
+      "fk": "Print_Servers",
+      "description": "The server that is managing printing for Check-In Suite."
+    },
+    {
+      "name": "Printer_Name",
+      "type": "nvarchar(128)",
+      "description": "The Printer that should print this rooms labels. Updated via Check-in Suite."
+    }
+  ],
+  "Room_Layouts": [
+    {
+      "name": "Room_Layout_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Layout_Name",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The name of the room layout."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "A description of the room layout."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Capacity",
+      "type": "smallint",
+      "description": "The person capacity for this room layout."
+    },
+    {
+      "name": "Table_Count",
+      "type": "smallint",
+      "description": "The number of tables this room layout allows."
+    },
+    {
+      "name": "Chair_Count",
+      "type": "smallint",
+      "description": "The number of chairs this room layout allows."
+    },
+    {
+      "name": "Setup_Minutes",
+      "type": "smallint",
+      "description": "The number of minutes needed for this room layout."
+    },
+    {
+      "name": "Room_ID",
+      "type": "int",
+      "fk": "Rooms",
+      "description": "The room associated with this room layout."
+    }
+  ],
+  "Programs": [
+    {
+      "name": "Program_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Program_Name",
+      "type": "nvarchar(130)",
+      "required": true,
+      "description": "Name of the Program representing an ongoing ministry effort."
+    },
+    {
+      "name": "Congregation_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Congregations",
+      "description": "The Congregation where this Program takes place."
+    },
+    {
+      "name": "Ministry_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Ministries",
+      "description": "The department that is responsible to oversee this Program."
+    },
+    {
+      "name": "Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date the Program began."
+    },
+    {
+      "name": "End_Date",
+      "type": "datetime",
+      "description": "The date the Program ended."
+    },
+    {
+      "name": "Program_Type_ID",
+      "type": "int",
+      "fk": "Program_Types",
+      "description": "An internal informational field indicating the main purpose of the Program."
+    },
+    {
+      "name": "Leadership_Team",
+      "type": "int",
+      "fk": "Groups",
+      "description": "An internal informational field indicating the main group that oversees this Program."
+    },
+    {
+      "name": "Primary_Contact",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The Contact who oversees this Program."
+    },
+    {
+      "name": "Priority_ID",
+      "type": "int",
+      "fk": "Priorities",
+      "description": "An internal informational field indicating the primary purpose this Program exists to further."
+    },
+    {
+      "name": "On_Connection_Card",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, Milestones, Responses and Feedback assigned to this Program can be edited via the Connection Card Tool."
+    },
+    {
+      "name": "Stewardship_Information",
+      "type": "bit"
+    },
+    {
+      "name": "Tax_Deductible_Donations",
+      "type": "bit",
+      "required": true,
+      "description": "Donations can be distributed to any program, but only donations to programs with a yes in this field will appear on a donors statement."
+    },
+    {
+      "name": "Statement_Title",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "This name will appear on the online giving page and on the donor statement.  Keep it short!"
+    },
+    {
+      "name": "Statement_Header_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Statement_Headers",
+      "description": "Indicates the column this program will be listed under for donor statements and other donation reports.  If empty donations to this program will be under the other column."
+    },
+    {
+      "name": "Allow_Online_Giving",
+      "type": "bit",
+      "required": true,
+      "description": "Selecting Yes will allow donors to give online to this program IF it is of type stewardship."
+    },
+    {
+      "name": "Online_Sort_Order",
+      "type": "smallint",
+      "description": "This sort order will ensure that the online designations for giving appear in the order desired."
+    },
+    {
+      "name": "Pledge_Campaign_ID",
+      "type": "int",
+      "fk": "Pledge_Campaigns",
+      "description": "The campaign currently associated with donations to this program"
+    },
+    {
+      "name": "Account_Number",
+      "type": "nvarchar(25)",
+      "description": "This number will be used to generate a GL export summarizing the income account donations posted to this program should be credited against."
+    },
+    {
+      "name": "Default_Target_Event",
+      "type": "int",
+      "fk": "Events",
+      "description": "The Event the Donation Distributions automatically assign to when selected Donations are Batched or selected Batches are Deposited."
+    },
+    {
+      "name": "On_Donation_Batch_Tool",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, Donations can be distributed to this Program when processing donations through Batch Manager Tool."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Available_Online",
+      "type": "bit",
+      "required": true,
+      "description": "This field is deprecated."
+    },
+    {
+      "name": "Omit_From_Engagement_Giving",
+      "type": "bit",
+      "required": true,
+      "description": "If false, donations to this Program will be included in the Participant Engagement routine."
+    },
+    {
+      "name": "SMS_Number",
+      "type": "int",
+      "fk": "dp_SMS_Numbers",
+      "description": "The SMS Number that this Program can use to send outgoing text messages from LifeApps."
+    },
+    {
+      "name": "OLG_Fund",
+      "type": "nvarchar(1000)",
+      "description": "PocketPlatform Only: The OLG Fund name that corresponds to this Program for OLG Donations."
+    },
+    {
+      "name": "OLG_Sub_Fund",
+      "type": "nvarchar(1000)",
+      "description": "PocketPlatform Only: The OLG Sub Fund name (if applicable) that corresponds to this Program for OLG Donations."
+    },
+    {
+      "name": "Vision2_Program_ID",
+      "type": "nvarchar(1000)",
+      "description": "PocketPlatform Only: The Vision 2 ID that corresponds to this Program for Vision 2 Donations."
+    }
+  ],
+  "Background_Checks": [
+    {
+      "name": "Background_Check_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The contact record of the person undergoing the background check."
+    },
+    {
+      "name": "Requesting_Ministry",
+      "type": "int",
+      "fk": "Ministries",
+      "description": "An optional field designating the ministry department that requested that this person undergo a background check."
+    },
+    {
+      "name": "Background_Check_Submitted",
+      "type": "datetime",
+      "description": "The date when this background check was submitted to the service provider."
+    },
+    {
+      "name": "Background_Check_Returned",
+      "type": "datetime",
+      "description": "The date when the background check provider returned the completed background check about this contact."
+    },
+    {
+      "name": "All_Clear",
+      "type": "bit",
+      "description": "A flag indicating whether this contact was cleared by this background check."
+    },
+    {
+      "name": "Notes",
+      "type": "nvarchar(500)",
+      "description": "Free-form notes about this background check can be stored here."
+    },
+    {
+      "name": "Theft",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history of theft."
+    },
+    {
+      "name": "Drugs",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history with drugs."
+    },
+    {
+      "name": "Sexual",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history of sexual misconduct."
+    },
+    {
+      "name": "DUI",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history of driving under the influence."
+    },
+    {
+      "name": "Battery",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history of physical altercations."
+    },
+    {
+      "name": "Traffic",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history of traffic violations."
+    },
+    {
+      "name": "Other",
+      "type": "bit",
+      "description": "Set to true if this background check indicated the individual had a prior history involving other infractions not explicitly listed on the background check form."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Background_Check_Started",
+      "type": "datetime",
+      "required": true,
+      "description": "The date the background check was initially processed."
+    },
+    {
+      "name": "Reference_Number",
+      "type": "nvarchar(50)",
+      "description": "The ID of the background check associated with this record. This is generated by the third party background check vendor."
+    },
+    {
+      "name": "Report_Url",
+      "type": "varchar(2048)",
+      "description": "Link directly to the background check report provided by your third party background check vendor."
+    },
+    {
+      "name": "Background_Check_Type_ID",
+      "type": "int",
+      "fk": "Background_Check_Types",
+      "description": "The type of background check that has been requested."
+    },
+    {
+      "name": "Background_Check_GUID",
+      "type": "uniqueidentifier",
+      "required": true,
+      "description": "The unique identifier used to build a URL to this background check record."
+    },
+    {
+      "name": "Background_Submission",
+      "type": "bit"
+    },
+    {
+      "name": "First_Name",
+      "type": "nvarchar(50)",
+      "description": "The first name of the applicant being background checked"
+    },
+    {
+      "name": "Middle_Name",
+      "type": "nvarchar(50)",
+      "description": "The middle name of the applicant being background checked"
+    },
+    {
+      "name": "Last_Name",
+      "type": "nvarchar(50)",
+      "description": "The last name of the applicant being background checked"
+    },
+    {
+      "name": "Maiden_Name",
+      "type": "nvarchar(50)",
+      "description": "The maiden name of the applicant being background checked"
+    },
+    {
+      "name": "Date_Of_Birth",
+      "type": "date",
+      "description": "The date of birth of the applicant being background checked"
+    },
+    {
+      "name": "Gender",
+      "type": "nvarchar(50)",
+      "description": "The gender of the applicant being background checked"
+    },
+    {
+      "name": "Race",
+      "type": "nvarchar(50)",
+      "description": "The race of the applicant being background checked"
+    },
+    {
+      "name": "Address_Line_1",
+      "type": "nvarchar(128)",
+      "description": "The street name and number of the applicant being background checked"
+    },
+    {
+      "name": "City",
+      "type": "nvarchar(50)",
+      "description": "The city of the applicant who is being background checked"
+    },
+    {
+      "name": "State",
+      "type": "nvarchar(50)",
+      "description": "The name of the state of the applicant who is being background checked"
+    },
+    {
+      "name": "Postal_Code",
+      "type": "nvarchar(50)",
+      "description": "The zip code of the applicant who is being background checked"
+    },
+    {
+      "name": "Digital_Signature",
+      "type": "nvarchar(128)",
+      "description": "This displays what the applicant typed in for their digital signature."
+    },
+    {
+      "name": "DL_Number",
+      "type": "nvarchar(50)",
+      "description": "The drivers license number of the applicant who is being background checked"
+    },
+    {
+      "name": "Jurisdiction",
+      "type": "nvarchar(128)",
+      "description": "The state the statewide background check was run in."
+    },
+    {
+      "name": "DL_State",
+      "type": "nvarchar(50)",
+      "description": "The state the Drivers license is from. Used for the background check integration."
+    },
+    {
+      "name": "Background_Check_Expires",
+      "type": "datetime",
+      "description": "The date this Background Check expires. Set by a nightly routine based on the Background Check Type. You may manually set a date if an exception is necessary for a particular person’s Background Check."
+    },
+    {
+      "name": "Background_Check_Status_ID",
+      "type": "int",
+      "fk": "Background_Check_Statuses",
+      "description": "The status of the Background Check updated by the 3rd party integration."
+    },
+    {
+      "name": "Status_Date",
+      "type": "datetime",
+      "description": "The time the Status was last updated."
+    },
+    {
+      "name": "IP_Address",
+      "type": "nvarchar(16)",
+      "description": "Record of Client IP Address at the time the Background Check was sumbitted.  Required for certain states."
+    }
+  ],
+  "Background_Check_Types": [
+    {
+      "name": "Background_Check_Type_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Background_Check_Type",
+      "type": "nvarchar(128)",
+      "required": true,
+      "description": "The kind of background check that was run on an individual."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(256)",
+      "description": "A detailed explanation of the type of background check selected"
+    },
+    {
+      "name": "Service_Code",
+      "type": "nvarchar(50)"
+    },
+    {
+      "name": "Package_Service_Code",
+      "type": "nvarchar(50)",
+      "description": "The type of package purchased through the third party vendor."
+    },
+    {
+      "name": "Collect_DL",
+      "type": "bit",
+      "required": true,
+      "description": "Indicates whether or not the drivers license number is required to be collected."
+    },
+    {
+      "name": "Service_Code_Delayed",
+      "type": "nvarchar(50)"
+    },
+    {
+      "name": "Collect_State",
+      "type": "bit",
+      "required": true,
+      "description": "Indicates whether or not the state for which they are running a background check is required to be collected."
+    },
+    {
+      "name": "Collect_Jurisdiction",
+      "type": "bit",
+      "required": true,
+      "description": "Indicates whether or not the jurisdiction information for which the background check is being run against is required to be collected."
+    },
+    {
+      "name": "Collect_Ethnicity",
+      "type": "bit",
+      "required": true,
+      "description": "Indicates whether or not the applicants ethnicity is required to be collected."
+    },
+    {
+      "name": "Default_Package",
+      "type": "bit",
+      "required": true,
+      "description": "The package selected to integrate with your third party background check provider and MP."
+    },
+    {
+      "name": "Detect_County",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Drug_Test",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Is_Background_Check",
+      "type": "bit",
+      "required": true,
+      "description": "Set this value to false when this type is a DMV, Reference, Credit check, etc. and should not be considered a Background Check.  It will be excluded from the nightly routines, notifications, and fields on the Participants page."
+    },
+    {
+      "name": "Credit_Check",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Months_Till_Expires",
+      "type": "int",
+      "description": "An integer value representing the number of months after which a volunteer needs a new Background Check of this type. If NULL, the COMMON,MonthsTillBackgroundCheckExpires value will be used."
+    },
+    {
+      "name": "Expiring_Soon_Days",
+      "type": "int",
+      "description": "Set the number of days prior to expiration when Qualifications and Compliance should begin displaying 'Expiring Soon'."
+    }
+  ],
+  "dp_Users": [
+    {
+      "name": "User_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "User_Name",
+      "type": "varchar(254)",
+      "required": true,
+      "description": "A unique value that will identify this user when logging into any MinistryPlatform application or third party application using the API."
+    },
+    {
+      "name": "User_Email",
+      "type": "nvarchar(254)",
+      "description": "DEPRECATED.This value is not used by any MinistryPlatform application."
+    },
+    {
+      "name": "Display_Name",
+      "type": "nvarchar(75)",
+      "description": "DEPRECATED. This value is not used by any MinistryPlatform application."
+    },
+    {
+      "name": "Password",
+      "type": "binary",
+      "description": "An encrypted field storing a unique value used in combination with the user name when logging into any MinistryPlatform application."
+    },
+    {
+      "name": "Admin",
+      "type": "bit",
+      "required": true,
+      "description": "This setting enables specific features like the ability to \"Refresh Cache\" in the MinistryPlatform About dialogue."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Publications_Manager",
+      "type": "bit",
+      "required": true,
+      "description": "DEPRECATED. This value is not used in any MinistryPlatform application."
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The foreign key to the contact record associated with this user record. User and contact records should be uniquely matched."
+    },
+    {
+      "name": "Supervisor",
+      "type": "int",
+      "fk": "dp_Users",
+      "description": "The contact record of the individual to whom the person associated with this user record is accountable. This is used in specific process steps when assigning tasks or securing approval."
+    },
+    {
+      "name": "User_GUID",
+      "type": "uniqueidentifier",
+      "required": true,
+      "description": "A unique identifier generated by the database for this user record. It is used by specific applications like the Portal for authentication."
+    },
+    {
+      "name": "Can_Impersonate",
+      "type": "bit",
+      "required": true,
+      "description": "User records where this value is set to TRUE will be able to impersonate other users of the MinistryPlatform core application."
+    },
+    {
+      "name": "In_Recovery",
+      "type": "bit",
+      "description": "DEPRECATED. This value is no longer used by any MinistryPlatform application."
+    },
+    {
+      "name": "Time_Zone",
+      "type": "nvarchar(64)",
+      "description": "The time zone or \"standard time\" of the User affecting the date and time displayed. Users can change this setting by clicking their user name in the top right of the Platform."
+    },
+    {
+      "name": "Locale",
+      "type": "nvarchar(11)",
+      "description": "The locale or \"culture\" of the User affecting the formatting of the date, time, and currency displayed. If blank, the system will use the Domain Locale. Users can change this setting by clicking their user name in the top right of the Platform."
+    },
+    {
+      "name": "Theme",
+      "type": "nvarchar(32)",
+      "description": "This value determines the color scheme and fonts applied to the MinistryPlatform application. Users can change this setting by clicking their user name in the top right of the MinistryPlatform application."
+    },
+    {
+      "name": "Setup_Admin",
+      "type": "bit",
+      "required": true,
+      "description": "User records where this value is TRUE can view, edit and delete values in the System Setup and System Lookup pages. Edits to these pages impact all users. Improper changes to those pages can potentially take part, or all, of the system offline until corrected."
+    },
+    {
+      "name": "Data_Service_Permissions",
+      "type": "bit"
+    },
+    {
+      "name": "Read_Permitted",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Create_Permitted",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Update_Permitted",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Delete_Permitted",
+      "type": "bit",
+      "required": true
+    },
+    {
+      "name": "Login_Attempts",
+      "type": "int",
+      "required": true,
+      "description": "The number of attempts the User has made to unsuccessfully login. Once the Max Login Attempts value is reached, the User will be locked out."
+    },
+    {
+      "name": "MFA_Required",
+      "type": "bit",
+      "description": "If true, the User will be required to verify via text or email before logging in. If NULL, the Domain MFA setting is used."
+    }
+  ],
+  "dp_User_Roles": [
+    {
+      "name": "User_Role_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "User_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Users"
+    },
+    {
+      "name": "Role_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Roles"
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    }
+  ],
+  "dp_User_User_Groups": [
+    {
+      "name": "User_User_Group_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "User_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Users"
+    },
+    {
+      "name": "User_Group_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_User_Groups"
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    }
+  ],
+  "Activity_Log": [
+    {
+      "name": "Activity_Log_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Activity_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date when this activity took place. For groups, if set in the Group Type, this date may indicate the individual was active in the group when the activity log was last updated."
+    },
+    {
+      "name": "Activity_Type",
+      "type": "nvarchar(75)",
+      "required": true,
+      "description": "A text value that categorizes the activity recorded. Often this is the page in MinistryPlatform where the activity was recorded."
+    },
+    {
+      "name": "Record_Name",
+      "type": "nvarchar(75)",
+      "required": true,
+      "description": "A text value that distinguishes this activity from other activities of the same type. The event name or group name would be found here for those types of activity."
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The ID number of the contact record for the person who was credited with this activity."
+    },
+    {
+      "name": "Household_ID",
+      "type": "int",
+      "fk": "Households",
+      "description": "The ID number of the household of the person credited with this activity."
+    },
+    {
+      "name": "Page_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Pages",
+      "description": "The ID number of the page (table) in MinistryPlatform where this activity was recorded."
+    },
+    {
+      "name": "Record_ID",
+      "type": "int",
+      "required": true,
+      "description": "The primary key of the record in the database upon which this activity log entry is based."
+    },
+    {
+      "name": "Table_Name",
+      "type": "varchar(50)",
+      "required": true,
+      "description": "The name of the database object in which the original record for this activity is located."
+    },
+    {
+      "name": "Page_Name",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The text description of the page in which this activity was recorded in MinistryPlatform."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Congregation_ID",
+      "type": "int",
+      "fk": "Congregations",
+      "description": "The campus, language group, or venue associated with this activity."
+    },
+    {
+      "name": "Ministry_ID",
+      "type": "int",
+      "fk": "Ministries",
+      "description": "The ministry department of the organization associated with this activity."
+    }
+  ],
+  "Ministries": [
+    {
+      "name": "Ministry_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Ministry_Name",
+      "type": "nvarchar(50)",
+      "required": true,
+      "description": "The friendly name of the ministry."
+    },
+    {
+      "name": "Nickname",
+      "type": "nvarchar(50)",
+      "description": "The internal name of this ministry."
+    },
+    {
+      "name": "Description",
+      "type": "nvarchar(255)",
+      "description": "A description of the ministry."
+    },
+    {
+      "name": "Start_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date this ministry began to operate."
+    },
+    {
+      "name": "End_Date",
+      "type": "datetime",
+      "description": "The date this ministry ceased to operate."
+    },
+    {
+      "name": "Primary_Contact",
+      "type": "int",
+      "required": true,
+      "fk": "Contacts",
+      "description": "The person who oversees and/or would answer questions about this ministry."
+    },
+    {
+      "name": "Parent_Ministry",
+      "type": "int",
+      "fk": "Ministries",
+      "description": "The ministry that oversees this ministry."
+    },
+    {
+      "name": "Available_Online",
+      "type": "bit",
+      "required": true,
+      "description": "If yes, this ministry is an option in Portal drop-down menus."
+    },
+    {
+      "name": "Priority_ID",
+      "type": "int",
+      "fk": "Priorities",
+      "description": "An internal field that indicates the primary objective this ministry exists to champion."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Leadership_Team",
+      "type": "int",
+      "fk": "Groups",
+      "description": "An internal field that indicates the primary group/team that oversees this ministry."
+    }
+  ],
+  "Form_Responses": [
+    {
+      "name": "Form_Response_ID",
+      "type": "int",
+      "pk": true
+    },
+    {
+      "name": "Form_ID",
+      "type": "int",
+      "required": true,
+      "fk": "Forms",
+      "description": "The form this response is for."
+    },
+    {
+      "name": "Response_Date",
+      "type": "datetime",
+      "required": true,
+      "description": "The date the form response was submitted."
+    },
+    {
+      "name": "IP_Address",
+      "type": "nvarchar(45)",
+      "description": "The IP address of the device that submitted this form response."
+    },
+    {
+      "name": "Contact_ID",
+      "type": "int",
+      "fk": "Contacts",
+      "description": "The Contact that submitted this form response."
+    },
+    {
+      "name": "First_Name",
+      "type": "nvarchar(50)",
+      "description": "The first name provided in the form response."
+    },
+    {
+      "name": "Last_Name",
+      "type": "nvarchar(50)",
+      "description": "The last name provided in the form response."
+    },
+    {
+      "name": "Email_Address",
+      "type": "varchar(255)",
+      "description": "The email address provided in the form response."
+    },
+    {
+      "name": "Phone_Number",
+      "type": "nvarchar(50)",
+      "description": "The phone number provided in the form response."
+    },
+    {
+      "name": "Address_Line_1",
+      "type": "nvarchar(75)",
+      "description": "The address provided in the form response."
+    },
+    {
+      "name": "Address_Line_2",
+      "type": "nvarchar(75)",
+      "description": "The address provided in the form response."
+    },
+    {
+      "name": "Address_City",
+      "type": "nvarchar(50)",
+      "description": "The city provided in the form response."
+    },
+    {
+      "name": "Address_State",
+      "type": "nvarchar(50)",
+      "description": "The state provided in the form response."
+    },
+    {
+      "name": "Address_Zip",
+      "type": "nvarchar(25)",
+      "description": "The zip code provided in the form response."
+    },
+    {
+      "name": "Event_ID",
+      "type": "int",
+      "fk": "Events",
+      "description": "The event this form response is associated with."
+    },
+    {
+      "name": "Domain_ID",
+      "type": "int",
+      "required": true,
+      "fk": "dp_Domains"
+    },
+    {
+      "name": "Pledge_Campaign_ID",
+      "type": "int",
+      "fk": "Pledge_Campaigns",
+      "description": "The pledge campaign this form response is associated with."
+    },
+    {
+      "name": "Opportunity_ID",
+      "type": "int",
+      "fk": "Opportunities",
+      "description": "The opportunity this form response is for."
+    },
+    {
+      "name": "Opportunity_Response",
+      "type": "int",
+      "fk": "Responses",
+      "description": "The opportunity response this form response is associated with."
+    },
+    {
+      "name": "Congregation_ID",
+      "type": "int",
+      "fk": "Congregations",
+      "description": "A value set automatically indicating the congregation associated with this form response. This value is used by the Global Filter for this page."
+    },
+    {
+      "name": "Notification_Sent",
+      "type": "bit",
+      "required": true,
+      "description": "This field will automatically get set to true when a routine sends the response message associated with a stand-alone custom form."
+    },
+    {
+      "name": "Expires",
+      "type": "datetime",
+      "description": "The date this Form Response expires. Set by a nightly routine based on the Form. You may manually set a date if an exception is necessary for a particular person's Form Response."
+    }
+  ]
+}
