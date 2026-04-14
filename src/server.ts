@@ -42,23 +42,30 @@ export function createMcpServer(): McpServer {
       },
     },
     async (extra: Extra) => {
-      const tables = getAllowedTables("read");
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              tables.map((t) => ({
-                table: t,
-                read: isTableAllowed(t, "read"),
-                write: isTableAllowed(t, "write"),
-              })),
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      try {
+        console.log("[Tool] list_tables called");
+        const tables = getAllowedTables("read");
+        console.log("[Tool] list_tables returning", tables.length, "tables");
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                tables.map((t) => ({
+                  table: t,
+                  read: isTableAllowed(t, "read"),
+                  write: isTableAllowed(t, "write"),
+                })),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        console.error("[Tool] list_tables error:", err);
+        throw err;
+      }
     }
   );
 
