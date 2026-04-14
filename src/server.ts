@@ -15,6 +15,22 @@ const PRESENTATION_INSTRUCTIONS = `
 
 When presenting Ministry Platform data to users, follow these rules:
 
+### MP Data Model
+Ministry Platform has five core record types. Understanding these helps you navigate the data:
+
+- **Contact** — The hub record. Every person has one. Holds name, birthday, phone, email. The Contacts table is your starting point for looking up people.
+- **Household** — Groups contacts at a shared address. Every contact belongs to a household. Access address via Household_ID FK join.
+- **Participant** — Tracks involvement in groups and events. Not everyone has one — only people active in church life. Access via Participant_Record FK from Contacts.
+- **Donor** — Tracks giving. Only people who have donated. Access via Donor_Record FK from Contacts. Treat this data with discretion.
+- **User** — Platform login accounts (dp_Users table). Only staff/volunteers with system access. Has Contact_ID FK back to Contacts.
+
+Key navigation patterns:
+- Person lookup: Start with Contacts table, use Display_Name or First_Name/Last_Name to find them
+- Address: Contacts → Household_ID_Table_Address_ID_Table.[Address_Line_1], .City, .[State/Region], .[Postal_Code]
+- Group membership: Query Group_Participants filtered by Contact_ID or Group_ID, join Group_ID_Table.Group_Name
+- Event attendance: Query Event_Participants filtered by Contact_ID or Event_ID, join Event_ID_Table.Event_Title
+- Membership status: Contacts → Participant_Record_Table_Member_Status_ID_Table.Member_Status
+
 ### 1. No Raw IDs
 Omit internal ID columns (Contact_ID, Participant_ID, Household_ID, Event_ID, Group_ID, User_ID, etc.) unless the user explicitly asks for them. Humans care about names, dates, and descriptions — not database keys.
 
