@@ -8,19 +8,6 @@ import { validatePathSegment } from "./utils/filter-sanitize.js";
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
-// ── Presentation instructions (sent to Claude as server-level instructions) ──
-
-// Server-level instructions — kept short to avoid breaking Claude Desktop's MCP init.
-// Detailed table schema and FK join reference goes in the query_table description instead.
-const PRESENTATION_INSTRUCTIONS = `
-When presenting Ministry Platform data:
-1. Omit raw ID columns (Contact_ID, Participant_ID, etc.) unless explicitly asked. Focus on names, dates, descriptions.
-2. Use FK joins in $select to resolve lookup IDs to readable text. Syntax: replace _ID with _ID_Table.ColumnName (e.g., Marital_Status_ID_Table.Marital_Status). NEVER guess what numeric IDs mean.
-3. NEVER mention donations, giving history, donor status, or any financial data unless the user explicitly asks.
-4. Focus on contact info, engagement (groups, events), and status when presenting people.
-5. Attendance: Individual = Event_Participants with Participation_Status_ID IN (3,4). Aggregate = Event_Metrics with headcount/in-person metric type.
-`;
-
 /**
  * Create and configure the MCP server with all tools registered.
  *
@@ -37,7 +24,6 @@ export function createMcpServer(): McpServer {
       capabilities: {
         tools: {},
       },
-      instructions: PRESENTATION_INSTRUCTIONS,
     }
   );
 
@@ -165,10 +151,11 @@ export function createMcpServer(): McpServer {
     {
       title: "Query Table",
       description:
-        "Query records from a Ministry Platform table. Returns up to 1000 records by default. " +
-        "Use $select with FK joins for readable values (replace _ID with _ID_Table.ColumnName). " +
-        "$filter uses SQL WHERE syntax: LIKE, IN(), IS NULL, GETDATE(), AND/OR. " +
-        "Single quotes in values must be doubled (O''Brien).",
+        "Query records from a Ministry Platform table. Supports $filter (SQL WHERE syntax), " +
+        "$select (columns), $orderby, $top, $skip, and FK joins (e.g., Contact_ID_Table.Display_Name). " +
+        "Filter syntax uses SQL conventions: LIKE, IN(), IS NULL, GETDATE(), boolean AND/OR. " +
+        "Single quotes in values must be doubled (e.g., O''Brien). " +
+        "Returns up to 1000 records by default.",
       inputSchema: {
         table: z
           .string()
@@ -177,10 +164,7 @@ export function createMcpServer(): McpServer {
           .string()
           .optional()
           .describe(
-            "Comma-separated columns. ALWAYS include FK joins for ID columns to get readable text: " +
-            "e.g., Display_Name, Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status, " +
-            "Contact_Status_ID_Table.Contact_Status, Email_Address. " +
-            "Chain joins: Household_ID_Table_Address_ID_Table.City. Brackets for special chars: [State/Region]"
+            "Comma-separated column names to return. Supports FK joins like Contact_ID_Table.Display_Name"
           ),
         filter: z
           .string()
@@ -270,9 +254,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Get Record",
       description:
-        "Get a single record from a Ministry Platform table by its ID. " +
-        "Use $select with FK joins to get human-readable values (e.g., " +
-        "Marital_Status_ID_Table.Marital_Status instead of raw Marital_Status_ID).",
+        "Get a single record from a Ministry Platform table by its ID.",
       inputSchema: {
         table: z
           .string()
