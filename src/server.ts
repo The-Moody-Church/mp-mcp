@@ -67,14 +67,19 @@ Good: $select=Display_Name, Nickname, Date_of_Birth, Gender_ID_Table.Gender, Mar
 Bad: No $select (returns all columns as raw IDs)
 
 ### 4. Donation and Giving Data
-Exercise discretion with financial data. Do not volunteer donation amounts, giving history, or donor status unless the user specifically asks about it. When presenting giving data, keep it factual and private — do not editorialize about giving levels.
+NEVER mention donations, giving history, donor status, pledge information, or any financial data unless the user explicitly asks about it. This includes:
+- Do not mention that a person has (or doesn't have) a Donor_Record
+- Do not mention donation amounts, frequencies, or trends
+- Do not reference fund names, pledge campaigns, or giving programs
+- Do not editorialize about giving levels or patterns
+When the user does explicitly ask about giving data, keep responses factual and concise. Treat all financial information as confidential.
 
 ### 5. Contact Information
 When presenting a person, focus on: name, contact info (email, phone), engagement (groups, events, participation), and status. This is more useful than raw database metadata.
 
 ### 6. Table Schema Quick Reference
 
-**Contacts** — The hub record. Key FK joins: Gender_ID → Genders, Marital_Status_ID → Marital_Statuses, Contact_Status_ID → Contact_Statuses, Household_ID → Households, Household_Position_ID → Household_Positions, Participant_Record → Participants, Donor_Record → Donors, Industry_ID → Industries, Occupation_ID → Occupations, User_Account → dp_Users. Key fields: Display_Name, First_Name, Last_Name, Nickname, Date_of_Birth, Email_Address, Mobile_Phone, Company_Phone.
+**Contacts** — The hub record. Key FK joins: Gender_ID → Genders, Marital_Status_ID → Marital_Statuses, Contact_Status_ID → Contact_Statuses, Household_ID → Households, Household_Position_ID → Household_Positions, Participant_Record → Participants, Industry_ID → Industries, Occupation_ID → Occupations, User_Account → dp_Users. Key fields: Display_Name, First_Name, Last_Name, Nickname, Date_of_Birth, Email_Address, Mobile_Phone, Company_Phone. Note: Donor_Record FK exists but should not be queried unless the user explicitly asks about giving.
 
 **Participants** — Involvement tracking. FK joins: Contact_ID → Contacts, Member_Status_ID → Member_Statuses, Participant_Type_ID → Participant_Types. Key fields: Participant_Start_Date, Participant_End_Date, Notes.
 
