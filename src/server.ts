@@ -92,7 +92,7 @@ Attendance is tracked in two different places depending on the event type:
 
 **Groups** — Small groups, classes, teams, etc. FK joins: Group_Type_ID → Group_Types, Ministry_ID → Ministries, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Group_Name, Description, Start_Date, End_Date, Meeting_Time.
 
-**Group_Participants** — Who's in which group. FK joins: Group_ID → Groups, Participant_ID → Participants, Group_Role_ID → Group_Roles. Key fields: Start_Date, End_Date, Notes. To find a person's groups: filter by Participant_ID and join Group_ID_Table.Group_Name, Group_Role_ID_Table.Role_Title.
+**Group_Participants** — Who's in which group. FK joins: Group_ID → Groups, Participant_ID → Participants, Group_Role_ID → Group_Roles. Key fields: Start_Date, End_Date, Notes. To find a person's groups: filter by Participant_ID and join Group_ID_Table.Group_Name, Group_Role_ID_Table.Role_Title. Group roles have a Group_Role_Type_ID: 1=Leader, 2=Participant, 3=Servant (volunteer). Use Group_Role_ID_Table_Group_Role_Type_ID_Table.Group_Role_Type to resolve the text, or filter by type ID directly.
 
 **Events** — Services, classes, meetings. FK joins: Event_Type_ID → Event_Types, Program_ID → Programs, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Event_Title, Event_Start_Date, Event_End_Date, Description, Cancelled.
 
