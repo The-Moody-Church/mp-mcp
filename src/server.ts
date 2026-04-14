@@ -165,24 +165,10 @@ export function createMcpServer(): McpServer {
     {
       title: "Query Table",
       description:
-        "Query records from a Ministry Platform table. Returns up to 1000 records by default.\n\n" +
-        "IMPORTANT: Always use $select with FK joins to get human-readable values instead of raw IDs. " +
-        "FK join syntax: replace _ID with _ID_Table.ColumnName (e.g., Marital_Status_ID_Table.Marital_Status, " +
-        "Contact_ID_Table.Display_Name). Chain with underscores for multi-hop: " +
-        "Household_ID_Table_Address_ID_Table.City. Use square brackets for special chars: [State/Region].\n\n" +
+        "Query records from a Ministry Platform table. Returns up to 1000 records by default. " +
+        "Use $select with FK joins for readable values (replace _ID with _ID_Table.ColumnName). " +
         "$filter uses SQL WHERE syntax: LIKE, IN(), IS NULL, GETDATE(), AND/OR. " +
-        "Single quotes in values must be doubled (O''Brien). FK joins work in filters too.\n\n" +
-        "Common FK joins: Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status, " +
-        "Contact_Status_ID_Table.Contact_Status, Household_Position_ID_Table.Household_Position, " +
-        "Congregation_ID_Table.Congregation_Name, Group_Type_ID_Table.Group_Type, " +
-        "Group_Role_ID_Table.Role_Title, Member_Status_ID_Table.Member_Status, " +
-        "Event_Type_ID_Table.Event_Type, Program_ID_Table.Program_Name, " +
-        "Participation_Status_ID_Table.Participation_Status, Room_ID_Table.Room_Name.\n\n" +
-        "Key tables: Contacts (hub record — Display_Name, Email_Address, Mobile_Phone). " +
-        "Group_Participants (who's in which group — join Group_ID_Table.Group_Name, Group_Role_ID_Table.Role_Title; " +
-        "Group_Role_Type_ID: 1=Leader, 2=Participant, 3=Servant). " +
-        "Event_Participants (attendance — Participation_Status_ID 3=Attended, 4=Confirmed, 5=Cancelled). " +
-        "Event_Metrics (aggregate attendance — Numerical_Value with Metric_ID_Table.Metric_Name of Headcount/In Person).",
+        "Single quotes in values must be doubled (O''Brien).",
       inputSchema: {
         table: z
           .string()
