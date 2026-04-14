@@ -8,6 +8,55 @@ import { validatePathSegment } from "./utils/filter-sanitize.js";
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
+// ── Presentation instructions (sent to Claude as server-level instructions) ──
+
+const PRESENTATION_INSTRUCTIONS = `
+## Data Presentation Rules
+
+When presenting Ministry Platform data to users, follow these rules:
+
+### 1. No Raw IDs
+Omit internal ID columns (Contact_ID, Participant_ID, Household_ID, Event_ID, Group_ID, User_ID, etc.) unless the user explicitly asks for them. Humans care about names, dates, and descriptions — not database keys.
+
+### 2. Resolve Lookup Values via FK Joins
+Many columns store numeric foreign key IDs (e.g., Marital_Status_ID, Contact_Status_ID, Gender_ID). NEVER guess what these numbers mean — use FK joins in $select to get the human-readable text.
+
+**FK join syntax:** Replace the column's _ID suffix with _ID_Table.{ColumnName}
+- Marital_Status_ID → Marital_Status_ID_Table.Marital_Status
+- Contact_Status_ID → Contact_Status_ID_Table.Contact_Status
+- Gender_ID → Gender_ID_Table.Gender
+- Household_Position_ID → Household_Position_ID_Table.Household_Position
+- Congregation_ID → Congregation_ID_Table.Congregation_Name
+- Group_Type_ID → Group_Type_ID_Table.Group_Type
+- Group_Role_ID → Group_Role_ID_Table.Role_Title
+- Member_Status_ID → Member_Status_ID_Table.Member_Status
+- Event_Type_ID → Event_Type_ID_Table.Event_Type
+- Program_ID → Program_ID_Table.Program_Name
+- Participation_Status_ID → Participation_Status_ID_Table.Participation_Status
+- Room_ID → Room_ID_Table.Room_Name
+
+**Chained FK joins** traverse multiple relationships with underscores:
+- Household_ID_Table_Address_ID_Table.City (Contact → Household → Address)
+- Participant_Record_Table_Member_Status_ID_Table.Member_Status (Contact → Participant → Member Status)
+- Contact_ID_Table.Display_Name (any table with Contact_ID FK)
+- Event_ID_Table.Event_Title (any table with Event_ID FK)
+
+Use square brackets for column names containing special characters: [State/Region], [Address_Line_1]
+
+### 3. Prefer $select with FK Joins Over Raw Queries
+When querying a table, use $select to request only the columns you need, and include FK joins for any ID columns. For example, to look up a contact:
+
+Good: $select=Display_Name, Nickname, Date_of_Birth, Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status, Contact_Status_ID_Table.Contact_Status, Email_Address, Mobile_Phone, Congregation_ID_Table.Congregation_Name, Household_Position_ID_Table.Household_Position
+
+Bad: No $select (returns all columns as raw IDs)
+
+### 4. Donation and Giving Data
+Exercise discretion with financial data. Do not volunteer donation amounts, giving history, or donor status unless the user specifically asks about it. When presenting giving data, keep it factual and private — do not editorialize about giving levels.
+
+### 5. Contact Information
+When presenting a person, focus on: name, contact info (email, phone), engagement (groups, events, participation), and status. This is more useful than raw database metadata.
+`;
+
 /**
  * Create and configure the MCP server with all tools registered.
  *
@@ -24,6 +73,7 @@ export function createMcpServer(): McpServer {
       capabilities: {
         tools: {},
       },
+      instructions: PRESENTATION_INSTRUCTIONS,
     }
   );
 
@@ -151,11 +201,13 @@ export function createMcpServer(): McpServer {
     {
       title: "Query Table",
       description:
-        "Query records from a Ministry Platform table. Supports $filter (SQL WHERE syntax), " +
-        "$select (columns), $orderby, $top, $skip, and FK joins (e.g., Contact_ID_Table.Display_Name). " +
-        "Filter syntax uses SQL conventions: LIKE, IN(), IS NULL, GETDATE(), boolean AND/OR. " +
-        "Single quotes in values must be doubled (e.g., O''Brien). " +
-        "Returns up to 1000 records by default.",
+        "Query records from a Ministry Platform table. Returns up to 1000 records by default.\n\n" +
+        "IMPORTANT: Always use $select with FK joins to get human-readable values instead of raw IDs. " +
+        "FK join syntax: replace _ID with _ID_Table.ColumnName (e.g., Marital_Status_ID_Table.Marital_Status, " +
+        "Contact_ID_Table.Display_Name). Chain with underscores for multi-hop: " +
+        "Household_ID_Table_Address_ID_Table.City. Use square brackets for special chars: [State/Region].\n\n" +
+        "$filter uses SQL WHERE syntax: LIKE, IN(), IS NULL, GETDATE(), AND/OR. " +
+        "Single quotes in values must be doubled (O''Brien). FK joins work in filters too.",
       inputSchema: {
         table: z
           .string()
@@ -164,7 +216,10 @@ export function createMcpServer(): McpServer {
           .string()
           .optional()
           .describe(
-            "Comma-separated column names to return. Supports FK joins like Contact_ID_Table.Display_Name"
+            "Comma-separated columns. ALWAYS include FK joins for ID columns to get readable text: " +
+            "e.g., Display_Name, Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status, " +
+            "Contact_Status_ID_Table.Contact_Status, Email_Address. " +
+            "Chain joins: Household_ID_Table_Address_ID_Table.City. Brackets for special chars: [State/Region]"
           ),
         filter: z
           .string()
@@ -254,7 +309,9 @@ export function createMcpServer(): McpServer {
     {
       title: "Get Record",
       description:
-        "Get a single record from a Ministry Platform table by its ID.",
+        "Get a single record from a Ministry Platform table by its ID. " +
+        "Use $select with FK joins to get human-readable values (e.g., " +
+        "Marital_Status_ID_Table.Marital_Status instead of raw Marital_Status_ID).",
       inputSchema: {
         table: z
           .string()
