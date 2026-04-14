@@ -86,6 +86,7 @@ export async function mpApiRequest(
     response = await fetch(url, fetchOptions);
   } catch (err) {
     releaseSlot();
+    console.error(`[MP API] ${actualMethod} ${endpoint} fetch error:`, err);
     throw err;
   }
   releaseSlot();
@@ -93,6 +94,7 @@ export async function mpApiRequest(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     const sanitized = sanitizeErrorMessage(text);
+    console.error(`[MP API] ${actualMethod} ${endpoint} failed (${response.status}): ${sanitized}`);
     throw new Error(
       `MP API ${actualMethod} ${endpoint} failed (${response.status}): ${sanitized}`
     );
