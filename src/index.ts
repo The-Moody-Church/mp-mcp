@@ -284,6 +284,25 @@ app.post("/mcp", bearerAuth, handleMcp);
 app.get("/mcp", bearerAuth, handleMcp);
 app.delete("/mcp", bearerAuth, handleMcp);
 
+// Also serve MCP at root — Claude Desktop may probe "/" depending on connector URL
+app.post("/", bearerAuth, handleMcp);
+app.get("/", bearerAuth, handleMcp);
+app.delete("/", bearerAuth, handleMcp);
+
+// Serve protected resource metadata at root path too (the SDK only serves at /mcp suffix)
+app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+  res.json({
+    resource: `${config.publicUrl}/mcp`,
+    authorization_servers: [`${config.publicUrl}/`],
+    scopes_supported: [
+      "openid",
+      "offline_access",
+      "http://www.thinkministry.com/dataplatform/scopes/all",
+    ],
+    resource_name: "Ministry Platform MCP Server",
+  });
+});
+
 // ── Health check ───────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
