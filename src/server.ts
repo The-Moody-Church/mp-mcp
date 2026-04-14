@@ -318,19 +318,20 @@ export function createMcpServer(): McpServer {
 
 /**
  * Extract auth info from the MCP extra context.
- * The HTTP handler sets this on the authInfo property.
+ * The bearerAuth middleware sets req.auth (AuthInfo), which the transport
+ * passes through as extra.authInfo. Our verifyAccessToken stores mpBaseUrl
+ * and accessToken inside AuthInfo.extra.
  */
 function getAuthFromExtra(extra: Record<string, unknown>): {
   mpBaseUrl: string;
   accessToken: string;
 } {
-  const authInfo = (extra as { authInfo?: { mpBaseUrl?: string; accessToken?: string } })
+  const authInfo = (extra as { authInfo?: { token?: string; extra?: { mpBaseUrl?: string; accessToken?: string } } })
     .authInfo;
-  if (!authInfo?.mpBaseUrl || !authInfo?.accessToken) {
+  const mpBaseUrl = authInfo?.extra?.mpBaseUrl;
+  const accessToken = authInfo?.extra?.accessToken || authInfo?.token;
+  if (!mpBaseUrl || !accessToken) {
     throw new Error("Not authenticated — please log in first");
   }
-  return {
-    mpBaseUrl: authInfo.mpBaseUrl,
-    accessToken: authInfo.accessToken,
-  };
+  return { mpBaseUrl, accessToken };
 }
