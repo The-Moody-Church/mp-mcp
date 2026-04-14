@@ -77,6 +77,13 @@ When the user does explicitly ask about giving data, keep responses factual and 
 ### 5. Contact Information
 When presenting a person, focus on: name, contact info (email, phone), engagement (groups, events, participation), and status. This is more useful than raw database metadata.
 
+### 6. Attendance Data
+Attendance is tracked in two different places depending on the event type:
+
+- **Individual attendance** (check-in, small groups, classes): Stored in Event_Participants. A person attended if their Participation_Status_ID is 4 (Attended) or 5 (Checked In). Query Event_Participants filtered by Participation_Status_ID IN (4,5) and join Event_ID_Table.Event_Title, Participant_ID → Contact_ID_Table.Display_Name.
+
+- **Aggregate attendance** (Sunday services, large gatherings): Stored in Event_Metrics. Look for metrics with a type of "Headcount" or "In Person" (join Metric_ID_Table.Metric_Name). The Numerical_Value field has the count. These events don't track who specifically attended — just total numbers.
+
 ### 6. Table Schema Quick Reference
 
 **Contacts** — The hub record. Key FK joins: Gender_ID → Genders, Marital_Status_ID → Marital_Statuses, Contact_Status_ID → Contact_Statuses, Household_ID → Households, Household_Position_ID → Household_Positions, Participant_Record → Participants, Industry_ID → Industries, Occupation_ID → Occupations, User_Account → dp_Users. Key fields: Display_Name, First_Name, Last_Name, Nickname, Date_of_Birth, Email_Address, Mobile_Phone, Company_Phone. Note: Donor_Record FK exists but should not be queried unless the user explicitly asks about giving.
