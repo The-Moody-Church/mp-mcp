@@ -129,10 +129,24 @@ const oauthProvider = new ProxyOAuthServerProvider({
       }
     }
 
+    // Extract expiration from the JWT's exp claim
+    let expiresAt: number = Math.floor(Date.now() / 1000) + 3600; // fallback: 1 hour
+    try {
+      const payload = JSON.parse(
+        Buffer.from(token.split(".")[1], "base64url").toString()
+      );
+      if (typeof payload.exp === "number") {
+        expiresAt = payload.exp;
+      }
+    } catch {
+      // Non-fatal — use fallback expiration
+    }
+
     return {
       token,
       clientId: config.oidcClientId,
       scopes: ["openid", "offline_access"],
+      expiresAt,
       extra: {
         mpBaseUrl: config.mpBaseUrl,
         accessToken: token,
@@ -195,6 +209,13 @@ const app = express();
 // Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
 app.set("trust proxy", 1);
 
+// Log every incoming HTTP request
+app.use((req, _res, next) => {
+  const auth = req.headers.authorization ? " [Bearer]" : "";
+  console.log(`[HTTP] ${req.method} ${req.path}${auth}`);
+  next();
+});
+
 // ── MCP OAuth auth routes (metadata, authorize, token, register) ───────────
 // Must be mounted at root before any body parsing middleware.
 
@@ -227,13 +248,16 @@ const bearerAuth = requireBearerAuth({
 });
 
 async function handleMcp(req: express.Request, res: express.Response) {
+  console.log(`[MCP] handleMcp called: ${req.method} ${req.path}`);
   // req.auth is set by bearerAuth middleware
   const authInfo = req.auth;
   if (!authInfo) {
+    console.log(`[MCP] no authInfo — returning 401`);
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
+  console.log(`[MCP] authenticated user: ${authInfo.extra?.userName || authInfo.extra?.userId || "unknown"}`);
   const transportKey = authInfo.extra?.userId as string || authInfo.token;
 
   // Get or create a transport for this user
