@@ -80,7 +80,7 @@ When presenting a person, focus on: name, contact info (email, phone), engagemen
 ### 6. Attendance Data
 Attendance is tracked in two different places depending on the event type:
 
-- **Individual attendance** (check-in, small groups, classes): Stored in Event_Participants. A person attended if their Participation_Status_ID is 4 (Attended) or 5 (Checked In). Query Event_Participants filtered by Participation_Status_ID IN (4,5) and join Event_ID_Table.Event_Title, Participant_ID → Contact_ID_Table.Display_Name.
+- **Individual attendance** (check-in, small groups, classes): Stored in Event_Participants. A person attended if their Participation_Status_ID is 3 (Attended) or 4 (Confirmed). Status 5 means Cancelled. Query Event_Participants filtered by Participation_Status_ID IN (3,4) and join Event_ID_Table.Event_Title, Participant_ID → Contact_ID_Table.Display_Name.
 
 - **Aggregate attendance** (Sunday services, large gatherings): Stored in Event_Metrics. Look for metrics with a type of "Headcount" or "In Person" (join Metric_ID_Table.Metric_Name). The Numerical_Value field has the count. These events don't track who specifically attended — just total numbers.
 
