@@ -270,7 +270,7 @@ async function handleMcp(req: express.Request, res: express.Response) {
   let transport = transports.get(transportKey);
   if (!transport) {
     transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
+      sessionIdGenerator: undefined, // Stateless — no session tracking. Auth is per-request via Bearer token.
     });
 
     transports.set(transportKey, transport);
