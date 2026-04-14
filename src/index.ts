@@ -247,6 +247,12 @@ const bearerAuth = requireBearerAuth({
   resourceMetadataUrl: `${config.publicUrl}/.well-known/oauth-protected-resource/mcp`,
 });
 
+// Separate bearer auth for root path — points to root resource metadata
+const bearerAuthRoot = requireBearerAuth({
+  verifier: oauthProvider,
+  resourceMetadataUrl: `${config.publicUrl}/.well-known/oauth-protected-resource`,
+});
+
 async function handleMcp(req: express.Request, res: express.Response) {
   console.log(`[MCP] handleMcp called: ${req.method} ${req.path}`);
   // req.auth is set by bearerAuth middleware
@@ -285,14 +291,15 @@ app.get("/mcp", bearerAuth, handleMcp);
 app.delete("/mcp", bearerAuth, handleMcp);
 
 // Also serve MCP at root — Claude Desktop may probe "/" depending on connector URL
-app.post("/", bearerAuth, handleMcp);
-app.get("/", bearerAuth, handleMcp);
-app.delete("/", bearerAuth, handleMcp);
+app.post("/", bearerAuthRoot, handleMcp);
+app.get("/", bearerAuthRoot, handleMcp);
+app.delete("/", bearerAuthRoot, handleMcp);
 
-// Serve protected resource metadata at root path too (the SDK only serves at /mcp suffix)
+// Serve protected resource metadata at root path too (the SDK only serves at /mcp suffix).
+// Points to root as the resource so Claude Desktop scopes the token to "/" correctly.
 app.get("/.well-known/oauth-protected-resource", (_req, res) => {
   res.json({
-    resource: `${config.publicUrl}/mcp`,
+    resource: `${config.publicUrl}/`,
     authorization_servers: [`${config.publicUrl}/`],
     scopes_supported: [
       "openid",
