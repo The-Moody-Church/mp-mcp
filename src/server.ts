@@ -8,6 +8,110 @@ import { validatePathSegment } from "./utils/filter-sanitize.js";
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
+// ── Presentation instructions (sent to Claude as server-level instructions) ──
+
+const PRESENTATION_INSTRUCTIONS = `
+## Data Presentation Rules
+
+When presenting Ministry Platform data to users, follow these rules:
+
+### MP Data Model
+Ministry Platform has five core record types. Understanding these helps you navigate the data:
+
+- **Contact** — The hub record. Every person has one. Holds name, birthday, phone, email. The Contacts table is your starting point for looking up people.
+- **Household** — Groups contacts at a shared address. Every contact belongs to a household. Access address via Household_ID FK join.
+- **Participant** — Tracks involvement in groups and events. Not everyone has one — only people active in church life. Access via Participant_Record FK from Contacts.
+- **Donor** — Tracks giving. Only people who have donated. Access via Donor_Record FK from Contacts. Treat this data with discretion.
+- **User** — Platform login accounts (dp_Users table). Only staff/volunteers with system access. Has Contact_ID FK back to Contacts.
+
+Key navigation patterns:
+- Person lookup: Start with Contacts table, use Display_Name or First_Name/Last_Name to find them
+- Address: Contacts → Household_ID_Table_Address_ID_Table.[Address_Line_1], .City, .[State/Region], .[Postal_Code]
+- Group membership: Query Group_Participants filtered by Contact_ID or Group_ID, join Group_ID_Table.Group_Name
+- Event attendance: Query Event_Participants filtered by Contact_ID or Event_ID, join Event_ID_Table.Event_Title
+- Membership status: Contacts → Participant_Record_Table_Member_Status_ID_Table.Member_Status
+
+### 1. No Raw IDs
+Omit internal ID columns (Contact_ID, Participant_ID, Household_ID, Event_ID, Group_ID, User_ID, etc.) unless the user explicitly asks for them. Humans care about names, dates, and descriptions — not database keys.
+
+### 2. Resolve Lookup Values via FK Joins
+Many columns store numeric foreign key IDs (e.g., Marital_Status_ID, Contact_Status_ID, Gender_ID). NEVER guess what these numbers mean — use FK joins in $select to get the human-readable text.
+
+**FK join syntax:** Replace the column's _ID suffix with _ID_Table.{ColumnName}
+- Marital_Status_ID → Marital_Status_ID_Table.Marital_Status
+- Contact_Status_ID → Contact_Status_ID_Table.Contact_Status
+- Gender_ID → Gender_ID_Table.Gender
+- Household_Position_ID → Household_Position_ID_Table.Household_Position
+- Congregation_ID → Congregation_ID_Table.Congregation_Name
+- Group_Type_ID → Group_Type_ID_Table.Group_Type
+- Group_Role_ID → Group_Role_ID_Table.Role_Title
+- Member_Status_ID → Member_Status_ID_Table.Member_Status
+- Event_Type_ID → Event_Type_ID_Table.Event_Type
+- Program_ID → Program_ID_Table.Program_Name
+- Participation_Status_ID → Participation_Status_ID_Table.Participation_Status
+- Room_ID → Room_ID_Table.Room_Name
+
+**Chained FK joins** traverse multiple relationships with underscores:
+- Household_ID_Table_Address_ID_Table.City (Contact → Household → Address)
+- Participant_Record_Table_Member_Status_ID_Table.Member_Status (Contact → Participant → Member Status)
+- Contact_ID_Table.Display_Name (any table with Contact_ID FK)
+- Event_ID_Table.Event_Title (any table with Event_ID FK)
+
+Use square brackets for column names containing special characters: [State/Region], [Address_Line_1]
+
+### 3. Prefer $select with FK Joins Over Raw Queries
+When querying a table, use $select to request only the columns you need, and include FK joins for any ID columns. For example, to look up a contact:
+
+Good: $select=Display_Name, Nickname, Date_of_Birth, Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status, Contact_Status_ID_Table.Contact_Status, Email_Address, Mobile_Phone, Congregation_ID_Table.Congregation_Name, Household_Position_ID_Table.Household_Position
+
+Bad: No $select (returns all columns as raw IDs)
+
+### 4. Donation and Giving Data
+NEVER mention donations, giving history, donor status, pledge information, or any financial data unless the user explicitly asks about it. This includes:
+- Do not mention that a person has (or doesn't have) a Donor_Record
+- Do not mention donation amounts, frequencies, or trends
+- Do not reference fund names, pledge campaigns, or giving programs
+- Do not editorialize about giving levels or patterns
+When the user does explicitly ask about giving data, keep responses factual and concise. Treat all financial information as confidential.
+
+### 5. Contact Information
+When presenting a person, focus on: name, contact info (email, phone), engagement (groups, events, participation), and status. This is more useful than raw database metadata.
+
+### 6. Attendance Data
+Attendance is tracked in two different places depending on the event type:
+
+- **Individual attendance** (check-in, small groups, classes): Stored in Event_Participants. A person attended if their Participation_Status_ID is 3 (Attended) or 4 (Confirmed). Status 5 means Cancelled. Query Event_Participants filtered by Participation_Status_ID IN (3,4) and join Event_ID_Table.Event_Title, Participant_ID → Contact_ID_Table.Display_Name.
+
+- **Aggregate attendance** (Sunday services, large gatherings): Stored in Event_Metrics. Look for metrics with a type of "Headcount" or "In Person" (join Metric_ID_Table.Metric_Name). The Numerical_Value field has the count. These events don't track who specifically attended — just total numbers.
+
+### 7. Group Roles
+Group roles have a Group_Role_Type_ID: 1=Leader, 2=Participant, 3=Servant (volunteer). Use Group_Role_ID_Table_Group_Role_Type_ID_Table.Group_Role_Type to resolve the text, or filter by type ID directly.
+
+### 8. Table Schema Quick Reference
+
+**Contacts** — The hub record. Key FK joins: Gender_ID → Genders, Marital_Status_ID → Marital_Statuses, Contact_Status_ID → Contact_Statuses, Household_ID → Households, Household_Position_ID → Household_Positions, Participant_Record → Participants, Industry_ID → Industries, Occupation_ID → Occupations, User_Account → dp_Users. Key fields: Display_Name, First_Name, Last_Name, Nickname, Date_of_Birth, Email_Address, Mobile_Phone, Company_Phone. Note: Donor_Record FK exists but should not be queried unless the user explicitly asks about giving.
+
+**Participants** — Involvement tracking. FK joins: Contact_ID → Contacts, Member_Status_ID → Member_Statuses, Participant_Type_ID → Participant_Types. Key fields: Participant_Start_Date, Participant_End_Date, Notes.
+
+**Groups** — Small groups, classes, teams, etc. FK joins: Group_Type_ID → Group_Types, Ministry_ID → Ministries, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Group_Name, Description, Start_Date, End_Date, Meeting_Time.
+
+**Group_Participants** — Who's in which group. FK joins: Group_ID → Groups, Participant_ID → Participants, Group_Role_ID → Group_Roles. Key fields: Start_Date, End_Date, Notes. To find a person's groups: filter by Participant_ID and join Group_ID_Table.Group_Name, Group_Role_ID_Table.Role_Title.
+
+**Events** — Services, classes, meetings. FK joins: Event_Type_ID → Event_Types, Program_ID → Programs, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Event_Title, Event_Start_Date, Event_End_Date, Description, Cancelled.
+
+**Event_Participants** — Attendance/registration. FK joins: Event_ID → Events, Participant_ID → Participants, Participation_Status_ID → Participation_Statuses, Room_ID → Rooms. Key fields: Time_In, Time_Out, Notes.
+
+**Contact_Log** — Notes and interactions. FK joins: Contact_ID → Contacts, Contact_Log_Type_ID → Contact_Log_Types, Made_By → dp_Users. Key fields: Contact_Date, Notes.
+
+**Background_Checks** — Clearances. FK joins: Contact_ID → Contacts, Background_Check_Type_ID → Background_Check_Types, Background_Check_Status_ID → Background_Check_Statuses. Key fields: Background_Check_Submitted, Background_Check_Returned, All_Clear.
+
+**Rooms** — Physical spaces. FK joins: Building_ID → Buildings. Key fields: Room_Name, Room_Number, Maximum_Capacity, Bookable.
+
+**Programs** — Organizational programs. FK joins: Ministry_ID → Ministries, Congregation_ID → Congregations, Primary_Contact → Contacts. Key fields: Program_Name, Start_Date, End_Date.
+
+**Ministries** — Ministry departments. FK joins: Primary_Contact → Contacts, Parent_Ministry → Ministries, Leadership_Team → Groups. Key fields: Ministry_Name, Description.
+`;
+
 /**
  * Create and configure the MCP server with all tools registered.
  *
@@ -24,6 +128,7 @@ export function createMcpServer(): McpServer {
       capabilities: {
         tools: {},
       },
+      instructions: PRESENTATION_INSTRUCTIONS,
     }
   );
 
