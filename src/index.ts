@@ -301,11 +301,12 @@ async function handleMcp(req: express.Request, res: express.Response) {
     ? transports.get(sessionId)
     : isInitialize ? undefined : transports.get(transportKey);
 
-  // Create a new transport for initialize requests
-  if (!transport && (isInitialize || req.method === "GET")) {
+  // Create a fresh transport when none exists (initialize, reconnect, or stale session)
+  if (!transport) {
     // Clean up any existing transport for this user
     const oldTransport = transports.get(transportKey);
     if (oldTransport) {
+      if (oldTransport.sessionId) transports.delete(oldTransport.sessionId);
       transports.delete(transportKey);
     }
 
@@ -313,7 +314,6 @@ async function handleMcp(req: express.Request, res: express.Response) {
       sessionIdGenerator: () => randomUUID(),
     });
 
-    // Store by both user key (for cleanup) and session ID (for routing)
     transports.set(transportKey, transport);
 
     const server = createMcpServer();
@@ -323,27 +323,11 @@ async function handleMcp(req: express.Request, res: express.Response) {
       if (transport!.sessionId) transports.delete(transport!.sessionId);
       transports.delete(transportKey);
     };
-
-    // Also store by session ID once assigned (after handleRequest)
-    const origSessionId = transport.sessionId;
-    if (origSessionId) {
-      transports.set(origSessionId, transport);
-    }
   }
-
-  if (!transport) {
-    res.status(400).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "No active session. Send an initialize request first." },
-      id: null,
-    });
-    return;
-  }
-
   await transport.handleRequest(req, res, req.body);
 
-  // After the first request, store by session ID if newly assigned
-  if (isInitialize && transport.sessionId && !transports.has(transport.sessionId)) {
+  // Store by session ID after first request so subsequent requests route correctly
+  if (transport.sessionId && !transports.has(transport.sessionId)) {
     transports.set(transport.sessionId, transport);
   }
 }
