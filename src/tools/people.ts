@@ -126,7 +126,7 @@ export function registerPeopleTools(server: McpServer): void {
 
       // Step 2: Get full contact profile with FK joins
       const contactSelect = [
-        "Contact_ID",
+        "Contacts.Contact_ID",
         "Display_Name",
         "Nickname",
         "First_Name",
@@ -143,7 +143,7 @@ export function registerPeopleTools(server: McpServer): void {
         "Household_ID_Table_Address_ID_Table.City",
         "Household_ID_Table_Address_ID_Table.[State/Region]",
         "Household_ID_Table_Address_ID_Table.[Postal_Code]",
-        "Congregation_ID_Table.Congregation_Name",
+        "Household_ID_Table_Congregation_ID_Table.Congregation_Name",
         "Participant_Record",
         "Participant_Record_Table_Member_Status_ID_Table.Member_Status",
       ].join(",");

@@ -46,9 +46,11 @@ query_table and get_record are available for ad-hoc queries. When using them:
 
 **Common mistakes to avoid:**
 - Address_ID_Table does NOT exist on Contacts — use Household_ID_Table_Address_ID_Table
+- Congregation_ID is on Households, not Contacts — use Household_ID_Table_Congregation_ID_Table.Congregation_Name
 - Group_Type_ID does NOT exist on Group_Participants — it's on Groups (join Group_ID_Table_Group_Type_ID_Table.Group_Type)
 - "Day" is not a column on Groups — use Meeting_Day_ID_Table.Meeting_Day
 - Participant_Engagement is not a valid FK join name
+- Nested FK joins in $select DON'T work (e.g., Event_ID_Table.Event_Type_ID_Table.Event_Type fails). Only underscore-chained joins work (e.g., Event_ID_Table_Event_Type_ID_Table.Event_Type). If that also fails, query the lookup table separately.
 - Use square brackets for special chars: [State/Region], [Address_Line_1]
 
 ### Attendance

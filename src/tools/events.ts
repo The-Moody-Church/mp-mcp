@@ -155,7 +155,7 @@ export function registerEventTools(server: McpServer): void {
           "Time_In",
           "Time_Out",
         ].join(","),
-        $filter: `Event_ID=${eventId} AND Participation_Status_ID IN (3,4)`,
+        $filter: `Event_ID=${eventId} AND Event_Participants.Participation_Status_ID IN (3,4)`,
         $orderby: "Participant_ID_Table_Contact_ID_Table.Display_Name",
       }) as unknown[];
 
