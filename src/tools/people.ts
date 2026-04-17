@@ -10,6 +10,7 @@ export function registerPeopleTools(server: McpServer): void {
       title: "Find People",
       description:
         "Search for people in Ministry Platform by name, email, or phone number. " +
+        "Searches Nickname, First_Name, and Last_Name individually (Display_Name is just 'Last, Nickname'). " +
         "Returns matching contacts with their basic info.",
       inputSchema: {
         search: z
@@ -30,8 +31,13 @@ export function registerPeopleTools(server: McpServer): void {
       const limit = top ?? 25;
       const escaped = search.replace(/'/g, "''");
 
-      // Search across name, email, and phone fields
+      // Search across name, email, and phone fields.
+      // Display_Name is "Last, Nickname" — search Nickname/First_Name/Last_Name
+      // individually for better partial matching.
       const filter = [
+        `Nickname LIKE '%${escaped}%'`,
+        `First_Name LIKE '%${escaped}%'`,
+        `Last_Name LIKE '%${escaped}%'`,
         `Display_Name LIKE '%${escaped}%'`,
         `Email_Address LIKE '%${escaped}%'`,
         `Mobile_Phone LIKE '%${escaped}%'`,
