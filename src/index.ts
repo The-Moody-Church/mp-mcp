@@ -1,5 +1,5 @@
 import express from "express";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
@@ -22,6 +22,12 @@ const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 
 // In-memory store for dynamically registered OAuth clients
 const registeredClients = new Map<string, OAuthClientInformationFull>();
+const MAX_REGISTERED_CLIENTS = 1000;
+
+// Allowlist of redirect URIs accepted during dynamic client registration.
+// Built-in entry for Claude's MCP callback; operators can add more via
+// ALLOWED_REDIRECT_URIS. Any URI outside the list (or non-https) is rejected.
+const BUILTIN_REDIRECT_URIS = ["https://claude.ai/api/mcp/auth_callback"];
 
 // Custom fetch that strips parameters MP doesn't understand
 // and logs requests for debugging.
@@ -41,23 +47,9 @@ const mpFetch: typeof fetch = async (input, init) => {
   }
 
   console.log(`[OAuth proxy] ${method} ${url}`);
-  if (init?.body) {
-    console.log(`[OAuth proxy] body: ${init.body}`);
-  }
   const res = await fetch(input, init);
   if (!res.ok) {
-    const text = await res.clone().text();
-    console.error(`[OAuth proxy] ${res.status} response: ${text}`);
-  } else if (url.includes("/token")) {
-    const text = await res.clone().text();
-    // Log the field names (not values) to see the response structure
-    try {
-      const json = JSON.parse(text);
-      const fields = Object.keys(json).map(k => `${k}=${typeof json[k] === 'string' ? json[k].substring(0, 15) + '...' : json[k]}`);
-      console.log(`[OAuth proxy] ${res.status} token response fields: ${fields.join(', ')}`);
-    } catch {
-      console.log(`[OAuth proxy] ${res.status} token response (not JSON): ${text.substring(0, 100)}`);
-    }
+    console.error(`[OAuth proxy] ${res.status} ${url}`);
   }
   return res;
 };
@@ -70,63 +62,52 @@ const oauthProvider = new ProxyOAuthServerProvider({
   fetch: mpFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
-    console.log(`[verifyAccessToken] checking token: ${token.substring(0, 20)}...`);
     // Verify the token by calling MP's userinfo endpoint
     const res = await fetch(`${mpOAuthBase}/connect/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      console.error(`[verifyAccessToken] userinfo failed ${res.status}: ${text}`);
+      console.error(`[verifyAccessToken] userinfo failed ${res.status}`);
       throw new Error("Invalid or expired token");
     }
     console.log(`[verifyAccessToken] userinfo OK`);
 
     const userinfo = (await res.json()) as Record<string, string>;
 
-    // Check user group restrictions if configured
+    // Fail-closed user group restriction: when configured, deny unless we
+    // can positively confirm membership in at least one allowed group.
     if (config.allowedUserGroupIds.length > 0) {
-      try {
-        const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        };
+      const denied = new Error("User not in allowed groups");
+      const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
 
+      let hasAccess = false;
+      try {
         const usersRes = await fetch(
           `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
           { headers }
         );
+        if (!usersRes.ok) throw denied;
+        const users = (await usersRes.json()) as Array<{ User_ID: number }>;
+        if (users.length === 0) throw denied;
 
-        if (usersRes.ok) {
-          const users = (await usersRes.json()) as Array<{ User_ID: number }>;
-          if (users.length > 0) {
-            const groupsRes = await fetch(
-              `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
-              { headers }
-            );
-
-            if (groupsRes.ok) {
-              const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
-              const userGroupIds = groups.map((g) => g.User_Group_ID);
-              const hasAccess = userGroupIds.some((gid) =>
-                config.allowedUserGroupIds.includes(gid)
-              );
-
-              if (!hasAccess) {
-                throw new Error("User not in allowed groups");
-              }
-            }
-          }
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message === "User not in allowed groups") {
-          throw err;
-        }
-        // Non-fatal — allow access if group check fails
-        console.warn("Failed to check user groups:", err);
+        const groupsRes = await fetch(
+          `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
+          { headers }
+        );
+        if (!groupsRes.ok) throw denied;
+        const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
+        hasAccess = groups.some((g) =>
+          config.allowedUserGroupIds.includes(g.User_Group_ID)
+        );
+      } catch {
+        throw denied;
       }
+      if (!hasAccess) throw denied;
     }
 
     // Extract expiration from the JWT's exp claim
@@ -191,12 +172,33 @@ Object.defineProperty(oauthProvider, "clientsStore", {
         return undefined;
       },
       registerClient: async (clientInfo: OAuthClientInformationFull) => {
+        const allowedRedirects = new Set<string>([
+          ...BUILTIN_REDIRECT_URIS,
+          ...config.allowedRedirectUris,
+        ]);
+        const redirectUris = clientInfo.redirect_uris ?? [];
+        if (redirectUris.length === 0) {
+          throw new Error("redirect_uris is required");
+        }
+        for (const uri of redirectUris) {
+          if (!uri.startsWith("https://") || !allowedRedirects.has(uri)) {
+            throw new Error(`redirect_uri not allowed: ${uri}`);
+          }
+        }
+
         const clientId = clientInfo.client_id || randomUUID();
+        const clientSecret =
+          clientInfo.client_secret || randomBytes(32).toString("hex");
         const full: OAuthClientInformationFull = {
           ...clientInfo,
           client_id: clientId,
-          client_secret: clientInfo.client_secret || config.oidcClientSecret,
+          client_secret: clientSecret,
         };
+
+        if (registeredClients.size >= MAX_REGISTERED_CLIENTS) {
+          const oldestKey = registeredClients.keys().next().value;
+          if (oldestKey) registeredClients.delete(oldestKey);
+        }
         registeredClients.set(clientId, full);
         return full;
       },
@@ -209,36 +211,9 @@ const app = express();
 // Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
 app.set("trust proxy", 1);
 
-// Log every incoming HTTP request and capture MCP responses
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   const auth = req.headers.authorization ? " [Bearer]" : "";
   console.log(`[HTTP] ${req.method} ${req.path}${auth}`);
-
-  // Intercept response for /mcp to log what we're sending back
-  if (req.path === "/mcp" || req.path === "/") {
-    const origWrite = res.write.bind(res);
-    const origEnd = res.end.bind(res);
-    const chunks: Buffer[] = [];
-
-    const origWriteFn = res.write;
-    res.write = function (this: any, chunk: any) {
-      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-      return origWriteFn.apply(this, arguments as any);
-    } as any;
-
-    const origEndFn = res.end;
-    res.end = function (this: any, chunk: any) {
-      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-      const body = Buffer.concat(chunks).toString("utf8");
-      if (body.length > 0 && body.length < 5000) {
-        console.log(`[MCP Response] ${res.statusCode} ${body.substring(0, 2000)}`);
-      } else if (body.length >= 5000) {
-        console.log(`[MCP Response] ${res.statusCode} (${body.length} bytes) ${body.substring(0, 500)}...`);
-      }
-      return origEndFn.apply(this, arguments as any);
-    } as any;
-  }
-
   next();
 });
 
@@ -359,7 +334,7 @@ app.get("/.well-known/oauth-protected-resource", (_req, res) => {
 // ── Health check ───────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.1.0" });
+  res.json({ status: "ok" });
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────

@@ -44,8 +44,8 @@ cp .env.example .env
 | `OIDC_CLIENT_SECRET` | The OIDC client secret |
 | `PUBLIC_URL` | The public URL where this server is hosted (e.g., `https://mcp.yourchurch.com`) |
 | `PORT` | Server port (default: `3000`) |
-| `SESSION_SECRET` | Random string for signing session cookies — generate with `openssl rand -hex 32` |
 | `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
+| `ALLOWED_REDIRECT_URIS` | (Optional) Comma-separated https URIs accepted for dynamic OAuth client registration in addition to the built-in `https://claude.ai/api/mcp/auth_callback`. |
 
 ### 3. Configure table allowlist
 

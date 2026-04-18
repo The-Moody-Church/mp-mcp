@@ -52,8 +52,8 @@ export interface AppConfig {
   oidcClientSecret: string;
   publicUrl: string;
   port: number;
-  sessionSecret: string;
   allowedUserGroupIds: number[];
+  allowedRedirectUris: string[];
 }
 
 export function loadAppConfig(): AppConfig {
@@ -72,13 +72,18 @@ export function loadAppConfig(): AppConfig {
     .map(Number)
     .filter((n) => !isNaN(n));
 
+  const allowedRedirectUris = (process.env.ALLOWED_REDIRECT_URIS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return {
     mpBaseUrl: required("MP_BASE_URL").replace(/\/+$/, ""),
     oidcClientId: required("OIDC_CLIENT_ID"),
     oidcClientSecret: required("OIDC_CLIENT_SECRET"),
     publicUrl: required("PUBLIC_URL").replace(/\/+$/, ""),
     port: parseInt(process.env.PORT || "3000", 10),
-    sessionSecret: required("SESSION_SECRET"),
     allowedUserGroupIds,
+    allowedRedirectUris,
   };
 }
