@@ -75,48 +75,39 @@ const oauthProvider = new ProxyOAuthServerProvider({
 
     const userinfo = (await res.json()) as Record<string, string>;
 
-    // Check user group restrictions if configured
+    // Fail-closed user group restriction: when configured, deny unless we
+    // can positively confirm membership in at least one allowed group.
     if (config.allowedUserGroupIds.length > 0) {
-      try {
-        const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        };
+      const denied = new Error("User not in allowed groups");
+      const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
 
+      let hasAccess = false;
+      try {
         const usersRes = await fetch(
           `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
           { headers }
         );
+        if (!usersRes.ok) throw denied;
+        const users = (await usersRes.json()) as Array<{ User_ID: number }>;
+        if (users.length === 0) throw denied;
 
-        if (usersRes.ok) {
-          const users = (await usersRes.json()) as Array<{ User_ID: number }>;
-          if (users.length > 0) {
-            const groupsRes = await fetch(
-              `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
-              { headers }
-            );
-
-            if (groupsRes.ok) {
-              const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
-              const userGroupIds = groups.map((g) => g.User_Group_ID);
-              const hasAccess = userGroupIds.some((gid) =>
-                config.allowedUserGroupIds.includes(gid)
-              );
-
-              if (!hasAccess) {
-                throw new Error("User not in allowed groups");
-              }
-            }
-          }
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message === "User not in allowed groups") {
-          throw err;
-        }
-        // Non-fatal — allow access if group check fails
-        console.warn("Failed to check user groups:", err);
+        const groupsRes = await fetch(
+          `${apiBase}/tables/dp_User_User_Groups?$filter=${encodeURIComponent(`User_ID=${users[0].User_ID}`)}&$select=User_Group_ID`,
+          { headers }
+        );
+        if (!groupsRes.ok) throw denied;
+        const groups = (await groupsRes.json()) as Array<{ User_Group_ID: number }>;
+        hasAccess = groups.some((g) =>
+          config.allowedUserGroupIds.includes(g.User_Group_ID)
+        );
+      } catch {
+        throw denied;
       }
+      if (!hasAccess) throw denied;
     }
 
     // Extract expiration from the JWT's exp claim
