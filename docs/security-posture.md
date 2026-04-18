@@ -19,10 +19,12 @@ This document describes how the MCP server approaches security, what it enforces
 - User-supplied values used in `LIKE` patterns are escaped for both quotes and wildcard characters (`%`, `_`, `[`).
 - Table names are validated before interpolation — no slashes, traversal sequences, or control characters.
 
-### Rate limiting
+### Rate limiting and resource caps
 - `/register` and `/token` are rate-limited by the MCP SDK.
 - `/mcp` and `/` are rate-limited per-token (120 req/min, keyed by `sha256(token)`).
 - Verified tokens are cached for 60 seconds to cut amplification to MP's `userinfo` endpoint.
+- Per-user MCP transports expire after 30 minutes of inactivity (swept every 5 minutes). Max 500 concurrent users; oldest is evicted when the cap is reached.
+- Registered OAuth client store is capped at 1000 entries with oldest-eviction.
 
 ### Logging
 - No OAuth request bodies, no token values, no MCP response bodies are logged.
