@@ -264,7 +264,7 @@ async function handleMcp(req: express.Request, res: express.Response) {
     return;
   }
 
-  console.log(`[MCP] authenticated user: ${authInfo.extra?.userName || authInfo.extra?.userId || "unknown"}`);
+  console.log(`[MCP] authenticated user: ${authInfo.extra?.userId || "unknown"}`);
   const transportKey = authInfo.extra?.userId as string || authInfo.token;
 
   // Check if this is an initialize request (new connection)
