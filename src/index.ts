@@ -47,23 +47,9 @@ const mpFetch: typeof fetch = async (input, init) => {
   }
 
   console.log(`[OAuth proxy] ${method} ${url}`);
-  if (init?.body) {
-    console.log(`[OAuth proxy] body: ${init.body}`);
-  }
   const res = await fetch(input, init);
   if (!res.ok) {
-    const text = await res.clone().text();
-    console.error(`[OAuth proxy] ${res.status} response: ${text}`);
-  } else if (url.includes("/token")) {
-    const text = await res.clone().text();
-    // Log the field names (not values) to see the response structure
-    try {
-      const json = JSON.parse(text);
-      const fields = Object.keys(json).map(k => `${k}=${typeof json[k] === 'string' ? json[k].substring(0, 15) + '...' : json[k]}`);
-      console.log(`[OAuth proxy] ${res.status} token response fields: ${fields.join(', ')}`);
-    } catch {
-      console.log(`[OAuth proxy] ${res.status} token response (not JSON): ${text.substring(0, 100)}`);
-    }
+    console.error(`[OAuth proxy] ${res.status} ${url}`);
   }
   return res;
 };
@@ -76,15 +62,13 @@ const oauthProvider = new ProxyOAuthServerProvider({
   fetch: mpFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
-    console.log(`[verifyAccessToken] checking token: ${token.substring(0, 20)}...`);
     // Verify the token by calling MP's userinfo endpoint
     const res = await fetch(`${mpOAuthBase}/connect/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      console.error(`[verifyAccessToken] userinfo failed ${res.status}: ${text}`);
+      console.error(`[verifyAccessToken] userinfo failed ${res.status}`);
       throw new Error("Invalid or expired token");
     }
     console.log(`[verifyAccessToken] userinfo OK`);
