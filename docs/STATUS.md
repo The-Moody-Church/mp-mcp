@@ -54,4 +54,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-13](sessions/2026-04-13.md) — Server goes live. Fixed 3 auth/transport bugs.
 - [2026-04-14](sessions/2026-04-14.md) — Instructions work, reconnect issues, stable baseline.
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
-- [2026-04-18](sessions/2026-04-18.md) — Two-pass security audit; 14 findings fixed, 3 documented as accepted risks.
+- [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
