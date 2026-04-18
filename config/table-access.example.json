@@ -18,12 +18,9 @@
   "Rooms": { "read": true, "write": false },
   "Room_Layouts": { "read": true, "write": false },
   "Programs": { "read": true, "write": false },
-  "Background_Checks": { "read": true, "write": false },
   "Background_Check_Types": { "read": true, "write": false },
-  "dp_Users": { "read": true, "write": false },
   "dp_User_Roles": { "read": true, "write": false },
   "dp_User_User_Groups": { "read": true, "write": false },
   "Activity_Log": { "read": true, "write": false },
-  "Ministries": { "read": true, "write": false },
-  "Form_Responses": { "read": true, "write": false }
+  "Ministries": { "read": true, "write": false }
 }

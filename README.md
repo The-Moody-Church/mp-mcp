@@ -66,6 +66,12 @@ Edit `config/table-access.json` to include only the tables you want accessible t
 
 Tables not listed are blocked entirely, regardless of the user's MP security role.
 
+**Sensitive tables excluded from the example** — you can add these back if you need them, but they carry extra risk:
+
+- `dp_Users` — auth metadata including password-reset tokens and hash columns. Not required for group-membership checks (the server queries it directly with the user's OIDC token outside the allowlist).
+- `Background_Checks` — criminal-history data. High downside if a misconfigured role exposes them through the REST API.
+- `Form_Responses` — freeform user-submitted text. High PII density and a prompt-injection surface for anything downstream of Claude.
+
 ## Deployment
 
 ### Option A: Docker (recommended)
