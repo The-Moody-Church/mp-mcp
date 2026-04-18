@@ -147,24 +147,29 @@ export function registerEventTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: "Provide either an event_name or event_id." }], isError: true };
       }
 
-      // Try individual attendance first (Event_Participants with status 3=Attended or 4=Confirmed)
-      const attendees = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Participants", {
-        $select: [
-          "Participant_ID_Table_Contact_ID_Table.Display_Name",
-          "Participation_Status_ID_Table.Participation_Status",
-          "Time_In",
-          "Time_Out",
-        ].join(","),
-        $filter: `Event_ID=${eventId} AND Event_Participants.Participation_Status_ID IN (3,4)`,
-        $orderby: "Participant_ID_Table_Contact_ID_Table.Display_Name",
-      }) as unknown[];
-
-      // Also check for aggregate metrics (headcount)
+      // Check aggregate metrics first (headcount for services/large events)
       let metrics: unknown[] = [];
       try {
         metrics = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Metrics", {
-          $select: "Metric_ID_Table.Metric_Name,Numerical_Value",
-          $filter: `Event_ID=${eventId}`,
+          $select: "Event_Metrics.Metric_ID,Metric_ID_Table.Metric_Name,Numerical_Value",
+          $filter: `Event_Metrics.Event_ID=${eventId}`,
+        }) as unknown[];
+      } catch {
+        // Non-fatal
+      }
+
+      // Then check individual attendance (Event_Participants with status 3=Attended or 4=Confirmed)
+      let attendees: unknown[] = [];
+      try {
+        attendees = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Participants", {
+          $select: [
+            "Participant_ID_Table_Contact_ID_Table.Display_Name",
+            "Participation_Status_ID_Table.Participation_Status",
+            "Time_In",
+            "Time_Out",
+          ].join(","),
+          $filter: `Event_ID=${eventId} AND Event_Participants.Participation_Status_ID IN (3,4)`,
+          $orderby: "Participant_ID_Table_Contact_ID_Table.Display_Name",
         }) as unknown[];
       } catch {
         // Non-fatal
@@ -172,14 +177,22 @@ export function registerEventTools(server: McpServer): void {
 
       const result: Record<string, unknown> = {};
       if (eventTitle) result.event = eventTitle;
-      if ((attendees as unknown[]).length > 0) {
+
+      const hasMetrics = (metrics as unknown[]).length > 0;
+      const hasAttendees = (attendees as unknown[]).length > 0;
+
+      if (hasMetrics) {
+        // Strip internal Metric_ID from output
+        result.metrics = (metrics as Record<string, unknown>[]).map(({ Metric_ID, ...rest }) => rest);
+      }
+      if (hasAttendees) {
         result.individual_attendance = attendees;
-        result.count = (attendees as unknown[]).length;
+        result.individual_count = (attendees as unknown[]).length;
       }
-      if ((metrics as unknown[]).length > 0) {
-        result.metrics = metrics;
+      if (hasMetrics && hasAttendees) {
+        result.note = "This event has both aggregate metrics (e.g., headcount) and individual check-in records.";
       }
-      if ((attendees as unknown[]).length === 0 && (metrics as unknown[]).length === 0) {
+      if (!hasMetrics && !hasAttendees) {
         result.message = "No attendance data found for this event.";
       }
 

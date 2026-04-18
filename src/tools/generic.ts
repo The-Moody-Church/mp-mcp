@@ -84,10 +84,15 @@ export function registerGenericTools(server: McpServer): void {
     {
       title: "Query Table",
       description:
-        "Query records from a Ministry Platform table. Use $select with FK joins for readable values " +
-        "(replace _ID with _ID_Table.ColumnName). $filter uses SQL WHERE syntax. " +
-        "Prefix ambiguous columns with the table name (e.g., Group_Participants.Start_Date). " +
-        "Returns up to 1000 records by default.",
+        "Low-level query tool. PREFER the domain tools (find_people, get_person_details, " +
+        "search_groups, get_group_roster, search_events, get_event_attendance) for common queries — " +
+        "they handle FK joins and disambiguation correctly. Only use query_table for ad-hoc queries " +
+        "those tools can't handle.\n\n" +
+        "Use $select with FK joins (replace _ID with _ID_Table.ColumnName). " +
+        "Prefix ambiguous columns with table name (e.g., Group_Participants.Start_Date, " +
+        "Event_Participants.Participation_Status_ID, Contacts.Contact_ID). " +
+        "Do NOT use DATEADD(), GETDATE(), or other SQL functions in $filter — use literal dates " +
+        "like '2026-04-13' instead. Returns up to 1000 records.",
       inputSchema: {
         table: z.string().describe("The MP table name"),
         select: z.string().optional().describe("Comma-separated columns with FK joins"),

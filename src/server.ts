@@ -51,6 +51,7 @@ query_table and get_record are available for ad-hoc queries. When using them:
 - "Day" is not a column on Groups — use Meeting_Day_ID_Table.Meeting_Day
 - Participant_Engagement is not a valid FK join name
 - Nested FK joins in $select DON'T work (e.g., Event_ID_Table.Event_Type_ID_Table.Event_Type fails). Only underscore-chained joins work (e.g., Event_ID_Table_Event_Type_ID_Table.Event_Type). If that also fails, query the lookup table separately.
+- Do NOT use SQL functions in $filter (DATEADD, GETDATE, DATEDIFF, etc.) — MP rejects them as "not safe". Use literal ISO date strings instead: Event_Start_Date >= '2026-04-13'
 - Use square brackets for special chars: [State/Region], [Address_Line_1]
 
 ### Attendance
