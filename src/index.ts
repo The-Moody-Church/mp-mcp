@@ -329,11 +329,17 @@ const mcpRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
+    // Only bucket by token hash when we've actually verified this token at
+    // some point in the last 60s (verifyCache hit). Otherwise an attacker
+    // could rotate random "Bearer xxx" values and each would land in its
+    // own bucket, trivially bypassing the limit. Unverified/absent tokens
+    // fall back to the IP bucket. ipKeyGenerator normalizes IPv6 to a /64
+    // subnet so a single allocation can't rotate addresses around it.
     const h = req.headers.authorization;
-    if (h?.startsWith("Bearer ")) return tokenHash(h.slice(7));
-    // Bucket unauthenticated callers by IP. ipKeyGenerator normalizes IPv6
-    // into /64 subnets so a single attacker can't rotate through addresses
-    // in their allocation to bypass the limit.
+    if (h?.startsWith("Bearer ")) {
+      const hash = tokenHash(h.slice(7));
+      if (verifyCache.has(hash)) return hash;
+    }
     return ipKeyGenerator(req.ip || "unknown");
   },
   message: { error: "Too many requests" },
