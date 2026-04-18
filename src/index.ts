@@ -220,36 +220,9 @@ const app = express();
 // Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
 app.set("trust proxy", 1);
 
-// Log every incoming HTTP request and capture MCP responses
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   const auth = req.headers.authorization ? " [Bearer]" : "";
   console.log(`[HTTP] ${req.method} ${req.path}${auth}`);
-
-  // Intercept response for /mcp to log what we're sending back
-  if (req.path === "/mcp" || req.path === "/") {
-    const origWrite = res.write.bind(res);
-    const origEnd = res.end.bind(res);
-    const chunks: Buffer[] = [];
-
-    const origWriteFn = res.write;
-    res.write = function (this: any, chunk: any) {
-      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-      return origWriteFn.apply(this, arguments as any);
-    } as any;
-
-    const origEndFn = res.end;
-    res.end = function (this: any, chunk: any) {
-      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-      const body = Buffer.concat(chunks).toString("utf8");
-      if (body.length > 0 && body.length < 5000) {
-        console.log(`[MCP Response] ${res.statusCode} ${body.substring(0, 2000)}`);
-      } else if (body.length >= 5000) {
-        console.log(`[MCP Response] ${res.statusCode} (${body.length} bytes) ${body.substring(0, 500)}...`);
-      }
-      return origEndFn.apply(this, arguments as any);
-    } as any;
-  }
-
   next();
 });
 
