@@ -34,3 +34,4 @@ npm start        # Run production build
 - **Never commit `.env` or `config/table-access.json`** — these contain secrets/local config
 - **Never delete or update MP records** without explicit user confirmation
 - This is a public repo — no hardcoded paths, credentials, or church-specific details
+- Full security model + accepted risks: [`docs/security-posture.md`](docs/security-posture.md)
