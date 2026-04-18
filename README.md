@@ -184,6 +184,10 @@ The `config/table-access.json` file acts as an additional ceiling on top of MP s
 
 The MCP server URL is the only thing configured on staff machines. All credentials and tokens are managed server-side.
 
+### Further reading
+
+See [`docs/security-posture.md`](docs/security-posture.md) for the full control inventory, `query_table` power-user guidance, and documented accepted risks.
+
 ## Endpoints
 
 | Path | Method | Description |
