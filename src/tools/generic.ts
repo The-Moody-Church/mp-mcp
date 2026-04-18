@@ -67,11 +67,15 @@ export function registerGenericTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: `Table "${safeName}" exists but has no records.` }] };
       }
 
-      const fields = Object.keys(sample[0]).map((key) => ({
-        name: key,
-        sampleValue: sample[0][key],
-        type: typeof sample[0][key],
-      }));
+      const fields = Object.keys(sample[0]).map((key) => {
+        const value = sample[0][key];
+        const type =
+          value === null ? "null" :
+          value instanceof Date ? "date" :
+          Array.isArray(value) ? "array" :
+          typeof value;
+        return { name: key, type };
+      });
 
       return { content: [{ type: "text" as const, text: JSON.stringify(fields, null, 2) }] };
     }
