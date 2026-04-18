@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { mpApiRequest } from "../transport.js";
+import { escapeLikeValue } from "../utils/filter-sanitize.js";
 import { getAuthFromExtra } from "./auth.js";
 
 export function registerGroupTools(server: McpServer): void {
@@ -42,9 +43,9 @@ export function registerGroupTools(server: McpServer): void {
       const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
 
       const filters: string[] = [];
-      if (search) filters.push(`Group_Name LIKE '%${search.replace(/'/g, "''")}%'`);
+      if (search) filters.push(`Group_Name LIKE '%${escapeLikeValue(search)}%'`);
       if (group_type) filters.push(`Group_Type_ID_Table.Group_Type = '${group_type.replace(/'/g, "''")}'`);
-      if (ministry) filters.push(`Ministry_ID_Table.Ministry_Name LIKE '%${ministry.replace(/'/g, "''")}%'`);
+      if (ministry) filters.push(`Ministry_ID_Table.Ministry_Name LIKE '%${escapeLikeValue(ministry)}%'`);
       if (!include_ended) filters.push("(Groups.End_Date IS NULL OR Groups.End_Date > GETDATE())");
 
       const select = [
@@ -111,7 +112,7 @@ export function registerGroupTools(server: McpServer): void {
       // Find the group if searching by name
       let groupId = group_id;
       if (!groupId && group_name) {
-        const escaped = group_name.replace(/'/g, "''");
+        const escaped = escapeLikeValue(group_name);
         const results = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Groups", {
           $select: "Group_ID,Group_Name",
           $filter: `Group_Name LIKE '%${escaped}%'`,

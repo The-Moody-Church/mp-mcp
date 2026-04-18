@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { mpApiRequest } from "../transport.js";
+import { escapeLikeValue } from "../utils/filter-sanitize.js";
 import { getAuthFromExtra } from "./auth.js";
 
 export function registerPeopleTools(server: McpServer): void {
@@ -29,7 +30,7 @@ export function registerPeopleTools(server: McpServer): void {
     async ({ search, top }, extra) => {
       const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
       const limit = top ?? 25;
-      const escaped = search.replace(/'/g, "''");
+      const escaped = escapeLikeValue(search);
 
       // Search across name, email, and phone fields.
       // Display_Name is "Last, Nickname" — search Nickname/First_Name/Last_Name
@@ -105,7 +106,7 @@ export function registerPeopleTools(server: McpServer): void {
       // Step 1: Find the contact
       let contactId = contact_id;
       if (!contactId && name) {
-        const escaped = name.replace(/'/g, "''");
+        const escaped = escapeLikeValue(name);
         const results = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Contacts", {
           $select: "Contact_ID,Display_Name",
           $filter: `Display_Name LIKE '%${escaped}%'`,

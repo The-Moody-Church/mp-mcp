@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { mpApiRequest } from "../transport.js";
+import { escapeLikeValue } from "../utils/filter-sanitize.js";
 import { getAuthFromExtra } from "./auth.js";
 
 export function registerEventTools(server: McpServer): void {
@@ -18,10 +19,12 @@ export function registerEventTools(server: McpServer): void {
           .describe("Event title to search for"),
         start_date: z
           .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
           .describe("Start of date range (YYYY-MM-DD). Defaults to today."),
         end_date: z
           .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
           .describe("End of date range (YYYY-MM-DD). Defaults to 7 days from start."),
         program: z
@@ -49,8 +52,8 @@ export function registerEventTools(server: McpServer): void {
       const filters: string[] = [];
       filters.push(`Event_Start_Date >= '${startStr}'`);
       if (end_date) filters.push(`Event_Start_Date <= '${end_date}'`);
-      if (search) filters.push(`Event_Title LIKE '%${search.replace(/'/g, "''")}%'`);
-      if (program) filters.push(`Program_ID_Table.Program_Name LIKE '%${program.replace(/'/g, "''")}%'`);
+      if (search) filters.push(`Event_Title LIKE '%${escapeLikeValue(search)}%'`);
+      if (program) filters.push(`Program_ID_Table.Program_Name LIKE '%${escapeLikeValue(program)}%'`);
       if (!include_cancelled) filters.push("ISNULL(Cancelled,0) = 0");
 
       const select = [
@@ -106,6 +109,7 @@ export function registerEventTools(server: McpServer): void {
           .describe("Event_ID if already known"),
         event_date: z
           .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
           .describe("Date to narrow search (YYYY-MM-DD)"),
       },
@@ -118,7 +122,7 @@ export function registerEventTools(server: McpServer): void {
       let eventId = event_id;
       let eventTitle = "";
       if (!eventId && event_name) {
-        const escaped = event_name.replace(/'/g, "''");
+        const escaped = escapeLikeValue(event_name);
         const filters = [`Event_Title LIKE '%${escaped}%'`];
         if (event_date) filters.push(`Event_Start_Date >= '${event_date}' AND Event_Start_Date < DATEADD(day,1,'${event_date}')`);
         const results = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Events", {
