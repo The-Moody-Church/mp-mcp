@@ -52,7 +52,6 @@ export interface AppConfig {
   oidcClientSecret: string;
   publicUrl: string;
   port: number;
-  sessionSecret: string;
   allowedUserGroupIds: number[];
   allowedRedirectUris: string[];
 }
@@ -84,7 +83,6 @@ export function loadAppConfig(): AppConfig {
     oidcClientSecret: required("OIDC_CLIENT_SECRET"),
     publicUrl: required("PUBLIC_URL").replace(/\/+$/, ""),
     port: parseInt(process.env.PORT || "3000", 10),
-    sessionSecret: required("SESSION_SECRET"),
     allowedUserGroupIds,
     allowedRedirectUris,
   };
