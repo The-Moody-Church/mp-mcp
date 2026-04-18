@@ -269,7 +269,41 @@ app.use(express.json());
 
 // ── Session-scoped MCP transports ──────────────────────────────────────────
 
+// Transports are indexed twice: once by a per-user key (userId/token) and
+// once by the session id the transport assigns on init. A separate
+// activity map tracks the *user-key* timestamp, so we can sweep the whole
+// logical session (both index entries) when a client vanishes without
+// closing cleanly.
 const transports = new Map<string, StreamableHTTPServerTransport>();
+const transportActivity = new Map<string, number>();
+const TRANSPORT_IDLE_TTL_MS = 30 * 60 * 1000;
+const MAX_TRANSPORTS = 500;
+const TRANSPORT_SWEEP_MS = 5 * 60 * 1000;
+
+function touchTransport(key: string): void {
+  transportActivity.set(key, Date.now());
+}
+
+function closeTransport(key: string): void {
+  const t = transports.get(key);
+  if (t) {
+    if (t.sessionId) transports.delete(t.sessionId);
+    transports.delete(key);
+    try {
+      t.close();
+    } catch {
+      // best-effort — the transport may already be closed
+    }
+  }
+  transportActivity.delete(key);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, last] of transportActivity) {
+    if (now - last > TRANSPORT_IDLE_TTL_MS) closeTransport(key);
+  }
+}, TRANSPORT_SWEEP_MS).unref();
 
 // ── MCP endpoint (protected by Bearer auth) ────────────────────────────────
 
@@ -324,11 +358,15 @@ async function handleMcp(req: express.Request, res: express.Response) {
 
   // Create a fresh transport when none exists (initialize, reconnect, or stale session)
   if (!transport) {
-    // Clean up any existing transport for this user
-    const oldTransport = transports.get(transportKey);
-    if (oldTransport) {
-      if (oldTransport.sessionId) transports.delete(oldTransport.sessionId);
-      transports.delete(transportKey);
+    closeTransport(transportKey);
+
+    if (transportActivity.size >= MAX_TRANSPORTS) {
+      let oldestKey: string | undefined;
+      let oldestTs = Infinity;
+      for (const [k, ts] of transportActivity) {
+        if (ts < oldestTs) { oldestTs = ts; oldestKey = k; }
+      }
+      if (oldestKey) closeTransport(oldestKey);
     }
 
     transport = new StreamableHTTPServerTransport({
@@ -343,8 +381,10 @@ async function handleMcp(req: express.Request, res: express.Response) {
     transport.onclose = () => {
       if (transport!.sessionId) transports.delete(transport!.sessionId);
       transports.delete(transportKey);
+      transportActivity.delete(transportKey);
     };
   }
+  touchTransport(transportKey);
   await transport.handleRequest(req, res, req.body);
 
   // Store by session ID after first request so subsequent requests route correctly
