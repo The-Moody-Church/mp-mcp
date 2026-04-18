@@ -1,5 +1,5 @@
 import express from "express";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
@@ -22,6 +22,12 @@ const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 
 // In-memory store for dynamically registered OAuth clients
 const registeredClients = new Map<string, OAuthClientInformationFull>();
+const MAX_REGISTERED_CLIENTS = 1000;
+
+// Allowlist of redirect URIs accepted during dynamic client registration.
+// Built-in entry for Claude's MCP callback; operators can add more via
+// ALLOWED_REDIRECT_URIS. Any URI outside the list (or non-https) is rejected.
+const BUILTIN_REDIRECT_URIS = ["https://claude.ai/api/mcp/auth_callback"];
 
 // Custom fetch that strips parameters MP doesn't understand
 // and logs requests for debugging.
@@ -191,12 +197,33 @@ Object.defineProperty(oauthProvider, "clientsStore", {
         return undefined;
       },
       registerClient: async (clientInfo: OAuthClientInformationFull) => {
+        const allowedRedirects = new Set<string>([
+          ...BUILTIN_REDIRECT_URIS,
+          ...config.allowedRedirectUris,
+        ]);
+        const redirectUris = clientInfo.redirect_uris ?? [];
+        if (redirectUris.length === 0) {
+          throw new Error("redirect_uris is required");
+        }
+        for (const uri of redirectUris) {
+          if (!uri.startsWith("https://") || !allowedRedirects.has(uri)) {
+            throw new Error(`redirect_uri not allowed: ${uri}`);
+          }
+        }
+
         const clientId = clientInfo.client_id || randomUUID();
+        const clientSecret =
+          clientInfo.client_secret || randomBytes(32).toString("hex");
         const full: OAuthClientInformationFull = {
           ...clientInfo,
           client_id: clientId,
-          client_secret: clientInfo.client_secret || config.oidcClientSecret,
+          client_secret: clientSecret,
         };
+
+        if (registeredClients.size >= MAX_REGISTERED_CLIENTS) {
+          const oldestKey = registeredClients.keys().next().value;
+          if (oldestKey) registeredClients.delete(oldestKey);
+        }
         registeredClients.set(clientId, full);
         return full;
       },
