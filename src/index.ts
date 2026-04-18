@@ -179,7 +179,6 @@ oauthProvider.skipLocalPkceValidation = true;
 
 // Override clientsStore to handle dynamic client registration locally.
 // Claude Desktop calls /register before /authorize to register its redirect_uri.
-const originalClientStore = oauthProvider.clientsStore;
 Object.defineProperty(oauthProvider, "clientsStore", {
   get() {
     return {
@@ -238,7 +237,10 @@ Object.defineProperty(oauthProvider, "clientsStore", {
 
 const app = express();
 
-// Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
+// Trust the first hop's X-Forwarded-* headers. This assumes exactly one
+// proxy in front of the app — in production, the Cloudflare tunnel on TMC1.
+// If you redeploy without that hop (or behind a different number of hops)
+// adjust this: trusting too many hops lets clients spoof their IP.
 app.set("trust proxy", 1);
 
 app.use((req, _res, next) => {
