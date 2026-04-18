@@ -67,6 +67,21 @@ When a caller looks up the configured OIDC client by ID, the returned object inc
 
 **What would change this**: adding any HTTP endpoint that serves existing client info, or upgrading the MCP SDK to a version that does so by default.
 
+### 60-second revocation window from the verified-token cache (accepted)
+`verifyAccessToken` caches the full `AuthInfo` (including the group-allowlist check result) for up to 60 seconds per token hash. This cuts MP `userinfo`/`dp_Users` round-trips dramatically, but it means a user whose access is revoked continues to pass the MCP's auth gate for up to that window.
+
+**What "revocation" actually covers**:
+- *MP account disabled or OIDC token revoked* — practical data-access window is ~0 seconds. The MCP's auth gate still passes for up to 60s, but every tool call hits MP with the user's token; MP rejects the revoked token on each call and the user gets errors.
+- *User removed from an `ALLOWED_USER_GROUP_IDS` group, with their MP login intact* — practical data-access window is up to 60 seconds. Their token still works against MP, the cached allowlist check still says `hasAccess: true`, so tool calls succeed until the cache entry ages out.
+- *MP role changed to strip access to specific tables* — MP enforces roles on every REST call, so restricted tables return 403/empty within ~0 seconds.
+
+**Why accepted**:
+- Scenario 2 (MCP allowlist removal without MP account change) is the only one with a real gap. In normal operations a terminated user's MP login is disabled, which drops the window to essentially zero.
+- The amplification savings are large: a single tool call previously cost 1–3 MP REST round-trips per request; caching eliminates those for follow-up calls within a minute.
+- Operators who need tighter revocation can (a) shorten the TTL constant, (b) disable the user's MP login as the primary revocation action, or (c) restart the container to flush all caches.
+
+**What would change this**: an operational pattern that regularly revokes MCP-group access without disabling the underlying MP account, or a compliance requirement for sub-minute revocation propagation.
+
 ### Silent fallback to example `table-access.json` in the container (accepted)
 The Dockerfile copies `config/table-access.example.json` into the image. If the operator forgets to mount their real `table-access.json`, the container runs with the example allowlist.
 

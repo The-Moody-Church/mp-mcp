@@ -110,8 +110,12 @@ const oauthProvider = new ProxyOAuthServerProvider({
 
       let hasAccess = false;
       try {
+        // Escape the OIDC sub before interpolating into the SQL-ish filter.
+        // MP issues subs as UUIDs so a quote shouldn't appear, but this is
+        // cheap belt-and-suspenders in case the upstream ever changes.
+        const safeSub = (userinfo.sub || "").replace(/'/g, "''");
         const usersRes = await fetch(
-          `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${userinfo.sub}'`)}&$select=User_ID`,
+          `${apiBase}/tables/dp_Users?$filter=${encodeURIComponent(`User_GUID='${safeSub}'`)}&$select=User_ID`,
           { headers }
         );
         if (!usersRes.ok) throw denied;
@@ -161,6 +165,9 @@ const oauthProvider = new ProxyOAuthServerProvider({
       },
     };
 
+    // Delete before set so a re-verified token moves to the newest position
+    // in Map insertion order (V8 preserves the original slot on set-over-existing).
+    verifyCache.delete(cacheKey);
     if (verifyCache.size >= MAX_VERIFY_CACHE) {
       const oldest = verifyCache.keys().next().value;
       if (oldest) verifyCache.delete(oldest);
@@ -329,11 +336,17 @@ const mcpRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
+    // Only bucket by token hash when we've actually verified this token at
+    // some point in the last 60s (verifyCache hit). Otherwise an attacker
+    // could rotate random "Bearer xxx" values and each would land in its
+    // own bucket, trivially bypassing the limit. Unverified/absent tokens
+    // fall back to the IP bucket. ipKeyGenerator normalizes IPv6 to a /64
+    // subnet so a single allocation can't rotate addresses around it.
     const h = req.headers.authorization;
-    if (h?.startsWith("Bearer ")) return tokenHash(h.slice(7));
-    // Bucket unauthenticated callers by IP. ipKeyGenerator normalizes IPv6
-    // into /64 subnets so a single attacker can't rotate through addresses
-    // in their allocation to bypass the limit.
+    if (h?.startsWith("Bearer ")) {
+      const hash = tokenHash(h.slice(7));
+      if (verifyCache.has(hash)) return hash;
+    }
     return ipKeyGenerator(req.ip || "unknown");
   },
   message: { error: "Too many requests" },
@@ -351,6 +364,9 @@ async function handleMcp(req: express.Request, res: express.Response) {
 
   console.log(`[MCP] authenticated user: ${authInfo.extra?.userId || "unknown"}`);
   const transportKey = authInfo.extra?.userId as string || authInfo.token;
+  // Touch before lookup so the idle sweeper can't decide to close this
+  // user's transport between the lookup and handleRequest.
+  touchTransport(transportKey);
 
   // Check if this is an initialize request (new connection)
   const isInitialize = req.method === "POST" && req.body?.method === "initialize";
@@ -389,7 +405,6 @@ async function handleMcp(req: express.Request, res: express.Response) {
       transportActivity.delete(transportKey);
     };
   }
-  touchTransport(transportKey);
   await transport.handleRequest(req, res, req.body);
 
   // Store by session ID after first request so subsequent requests route correctly

@@ -4,7 +4,7 @@
 
 ## Current State
 
-The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude Desktop connects via MP OIDC and queries data through 10 tools (6 domain + 4 generic). Two-pass security audit complete — see [`security-posture.md`](security-posture.md).
+The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude Desktop connects via MP OIDC and queries data through 10 tools (6 domain + 4 generic). Three-pass security audit complete — see [`security-posture.md`](security-posture.md).
 
 ## What Works
 
@@ -24,7 +24,7 @@ The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude D
 - **Personal connector cache:** When new tools are added, users may need to remove/re-add the connector in their personal Claude settings (not the org connector)
 - **Nested FK joins:** MP's API doesn't support `A_Table.B_Table.Column` — only underscore-chained `A_Table_B_Table.Column`. Some chains still fail; need to query separately and join client-side.
 - **No giving tools:** Donations excluded by design — not in allowlist, no tools exposed
-- **Accepted security risks:** prompt injection via MP freeform data, `getClient` returning configured OIDC secret (no current HTTP exposure), container silent fallback to example `table-access.json`. See [`security-posture.md`](security-posture.md).
+- **Accepted security risks:** prompt injection via MP freeform data, `getClient` returning configured OIDC secret (no current HTTP exposure), container silent fallback to example `table-access.json`, 60-second revocation window for MCP-group-only removals (disabling the MP login closes the window). See [`security-posture.md`](security-posture.md).
 
 ## Architecture
 

@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Audit npm dependencies
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -55,7 +55,7 @@ jobs:
 
       - name: Scan image with Trivy
         if: github.actor != 'dependabot[bot]'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # 0.35.0
         with:
           image-ref: ghcr.io/the-moody-church/mp-mcp:${{ github.sha }}
           format: table
