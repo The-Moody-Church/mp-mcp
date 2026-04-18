@@ -14,13 +14,12 @@ npm start        # Run production build
 
 ## Architecture
 
-- `src/index.ts` — Express HTTP server, auth routes, MCP endpoint
+- `src/index.ts` — Express HTTP server, OAuth proxy, MCP endpoint, rate limit, per-user transports
 - `src/server.ts` — MCP server with tool registrations
 - `src/transport.ts` — Authenticated MP API requests with concurrency limiting
-- `src/auth/oidc.ts` — OIDC discovery, authorization, token exchange/refresh
-- `src/auth/session.ts` — In-memory session store with signed cookies
+- `src/tools/` — Tool implementations (`people`, `groups`, `events`, `generic`, `auth`)
 - `src/config.ts` — Environment config + table allowlist loading
-- `src/utils/` — Filter sanitization, URL length handling
+- `src/utils/` — Filter sanitization (`filter-sanitize`), URL length handling (`url-builder`)
 
 ## Key patterns
 

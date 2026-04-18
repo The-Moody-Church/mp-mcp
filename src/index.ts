@@ -1,5 +1,6 @@
 import express from "express";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { rateLimit } from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
@@ -8,6 +9,10 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { createMcpServer } from "./server.js";
 import { loadAppConfig, loadTableAccess } from "./config.js";
+
+function tokenHash(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 const config = loadAppConfig();
 
@@ -23,6 +28,14 @@ const mpOAuthBase = `${config.mpBaseUrl}/ministryplatformapi/oauth`;
 // In-memory store for dynamically registered OAuth clients
 const registeredClients = new Map<string, OAuthClientInformationFull>();
 const MAX_REGISTERED_CLIENTS = 1000;
+
+// Short-lived cache of verified tokens. Every MCP tool call otherwise hits
+// MP's userinfo endpoint (and possibly dp_Users/dp_User_User_Groups) — one
+// verify per call amplifies traffic and creates a DoS vector. Keyed by
+// sha256(token) so raw tokens never sit in memory as map keys.
+const verifyCache = new Map<string, { authInfo: AuthInfo; cachedAt: number }>();
+const VERIFY_CACHE_TTL_MS = 60_000;
+const MAX_VERIFY_CACHE = 10_000;
 
 // Allowlist of redirect URIs accepted during dynamic client registration.
 // Built-in entry for Claude's MCP callback; operators can add more via
@@ -62,6 +75,16 @@ const oauthProvider = new ProxyOAuthServerProvider({
   fetch: mpFetch,
 
   verifyAccessToken: async (token: string): Promise<AuthInfo> => {
+    const cacheKey = tokenHash(token);
+    const cached = verifyCache.get(cacheKey);
+    if (cached && Date.now() - cached.cachedAt < VERIFY_CACHE_TTL_MS) {
+      const exp = cached.authInfo.expiresAt;
+      if (exp === undefined || exp * 1000 > Date.now()) {
+        return cached.authInfo;
+      }
+      verifyCache.delete(cacheKey);
+    }
+
     // Verify the token by calling MP's userinfo endpoint
     const res = await fetch(`${mpOAuthBase}/connect/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -123,7 +146,7 @@ const oauthProvider = new ProxyOAuthServerProvider({
       // Non-fatal — use fallback expiration
     }
 
-    return {
+    const authInfo: AuthInfo = {
       token,
       clientId: config.oidcClientId,
       scopes: ["openid", "offline_access"],
@@ -137,6 +160,13 @@ const oauthProvider = new ProxyOAuthServerProvider({
           .join(" "),
       },
     };
+
+    if (verifyCache.size >= MAX_VERIFY_CACHE) {
+      const oldest = verifyCache.keys().next().value;
+      if (oldest) verifyCache.delete(oldest);
+    }
+    verifyCache.set(cacheKey, { authInfo, cachedAt: Date.now() });
+    return authInfo;
   },
 
   getClient: async (clientId: string): Promise<OAuthClientInformationFull | undefined> => {
@@ -149,7 +179,6 @@ oauthProvider.skipLocalPkceValidation = true;
 
 // Override clientsStore to handle dynamic client registration locally.
 // Claude Desktop calls /register before /authorize to register its redirect_uri.
-const originalClientStore = oauthProvider.clientsStore;
 Object.defineProperty(oauthProvider, "clientsStore", {
   get() {
     return {
@@ -208,7 +237,10 @@ Object.defineProperty(oauthProvider, "clientsStore", {
 
 const app = express();
 
-// Trust proxy headers (Cloudflare tunnel sets X-Forwarded-For)
+// Trust the first hop's X-Forwarded-* headers. This assumes exactly one
+// proxy in front of the app — in production, the Cloudflare tunnel on TMC1.
+// If you redeploy without that hop (or behind a different number of hops)
+// adjust this: trusting too many hops lets clients spoof their IP.
 app.set("trust proxy", 1);
 
 app.use((req, _res, next) => {
@@ -239,7 +271,41 @@ app.use(express.json());
 
 // ── Session-scoped MCP transports ──────────────────────────────────────────
 
+// Transports are indexed twice: once by a per-user key (userId/token) and
+// once by the session id the transport assigns on init. A separate
+// activity map tracks the *user-key* timestamp, so we can sweep the whole
+// logical session (both index entries) when a client vanishes without
+// closing cleanly.
 const transports = new Map<string, StreamableHTTPServerTransport>();
+const transportActivity = new Map<string, number>();
+const TRANSPORT_IDLE_TTL_MS = 30 * 60 * 1000;
+const MAX_TRANSPORTS = 500;
+const TRANSPORT_SWEEP_MS = 5 * 60 * 1000;
+
+function touchTransport(key: string): void {
+  transportActivity.set(key, Date.now());
+}
+
+function closeTransport(key: string): void {
+  const t = transports.get(key);
+  if (t) {
+    if (t.sessionId) transports.delete(t.sessionId);
+    transports.delete(key);
+    try {
+      t.close();
+    } catch {
+      // best-effort — the transport may already be closed
+    }
+  }
+  transportActivity.delete(key);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, last] of transportActivity) {
+    if (now - last > TRANSPORT_IDLE_TTL_MS) closeTransport(key);
+  }
+}, TRANSPORT_SWEEP_MS).unref();
 
 // ── MCP endpoint (protected by Bearer auth) ────────────────────────────────
 
@@ -254,6 +320,22 @@ const bearerAuthRoot = requireBearerAuth({
   resourceMetadataUrl: `${config.publicUrl}/.well-known/oauth-protected-resource`,
 });
 
+// Per-token rate limit for MCP traffic. The SDK rate-limits /register and
+// /token but not custom routes; a client holding a valid token would
+// otherwise be able to spam userinfo (each request re-verifies).
+const mcpRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const h = req.headers.authorization;
+    if (h?.startsWith("Bearer ")) return tokenHash(h.slice(7));
+    return req.ip || "unknown";
+  },
+  message: { error: "Too many requests" },
+});
+
 async function handleMcp(req: express.Request, res: express.Response) {
   console.log(`[MCP] handleMcp called: ${req.method} ${req.path}`);
   // req.auth is set by bearerAuth middleware
@@ -264,7 +346,7 @@ async function handleMcp(req: express.Request, res: express.Response) {
     return;
   }
 
-  console.log(`[MCP] authenticated user: ${authInfo.extra?.userName || authInfo.extra?.userId || "unknown"}`);
+  console.log(`[MCP] authenticated user: ${authInfo.extra?.userId || "unknown"}`);
   const transportKey = authInfo.extra?.userId as string || authInfo.token;
 
   // Check if this is an initialize request (new connection)
@@ -278,11 +360,15 @@ async function handleMcp(req: express.Request, res: express.Response) {
 
   // Create a fresh transport when none exists (initialize, reconnect, or stale session)
   if (!transport) {
-    // Clean up any existing transport for this user
-    const oldTransport = transports.get(transportKey);
-    if (oldTransport) {
-      if (oldTransport.sessionId) transports.delete(oldTransport.sessionId);
-      transports.delete(transportKey);
+    closeTransport(transportKey);
+
+    if (transportActivity.size >= MAX_TRANSPORTS) {
+      let oldestKey: string | undefined;
+      let oldestTs = Infinity;
+      for (const [k, ts] of transportActivity) {
+        if (ts < oldestTs) { oldestTs = ts; oldestKey = k; }
+      }
+      if (oldestKey) closeTransport(oldestKey);
     }
 
     transport = new StreamableHTTPServerTransport({
@@ -297,8 +383,10 @@ async function handleMcp(req: express.Request, res: express.Response) {
     transport.onclose = () => {
       if (transport!.sessionId) transports.delete(transport!.sessionId);
       transports.delete(transportKey);
+      transportActivity.delete(transportKey);
     };
   }
+  touchTransport(transportKey);
   await transport.handleRequest(req, res, req.body);
 
   // Store by session ID after first request so subsequent requests route correctly
@@ -307,14 +395,14 @@ async function handleMcp(req: express.Request, res: express.Response) {
   }
 }
 
-app.post("/mcp", bearerAuth, handleMcp);
-app.get("/mcp", bearerAuth, handleMcp);
-app.delete("/mcp", bearerAuth, handleMcp);
+app.post("/mcp", mcpRateLimit, bearerAuth, handleMcp);
+app.get("/mcp", mcpRateLimit, bearerAuth, handleMcp);
+app.delete("/mcp", mcpRateLimit, bearerAuth, handleMcp);
 
 // Also serve MCP at root — Claude Desktop may probe "/" depending on connector URL
-app.post("/", bearerAuthRoot, handleMcp);
-app.get("/", bearerAuthRoot, handleMcp);
-app.delete("/", bearerAuthRoot, handleMcp);
+app.post("/", mcpRateLimit, bearerAuthRoot, handleMcp);
+app.get("/", mcpRateLimit, bearerAuthRoot, handleMcp);
+app.delete("/", mcpRateLimit, bearerAuthRoot, handleMcp);
 
 // Serve protected resource metadata at root path too (the SDK only serves at /mcp suffix).
 // Points to root as the resource so Claude Desktop scopes the token to "/" correctly.

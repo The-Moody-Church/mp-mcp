@@ -67,11 +67,15 @@ export function registerGenericTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: `Table "${safeName}" exists but has no records.` }] };
       }
 
-      const fields = Object.keys(sample[0]).map((key) => ({
-        name: key,
-        sampleValue: sample[0][key],
-        type: typeof sample[0][key],
-      }));
+      const fields = Object.keys(sample[0]).map((key) => {
+        const value = sample[0][key];
+        const type =
+          value === null ? "null" :
+          value instanceof Date ? "date" :
+          Array.isArray(value) ? "array" :
+          typeof value;
+        return { name: key, type };
+      });
 
       return { content: [{ type: "text" as const, text: JSON.stringify(fields, null, 2) }] };
     }
@@ -141,7 +145,7 @@ export function registerGenericTools(server: McpServer): void {
         "Get a single record from a Ministry Platform table by its ID.",
       inputSchema: {
         table: z.string().describe("The MP table name"),
-        id: z.number().int().describe("The record's primary key ID"),
+        id: z.number().int().positive().describe("The record's primary key ID"),
         select: z.string().optional().describe("Comma-separated columns to return"),
       },
       annotations: { readOnlyHint: true, destructiveHint: false },

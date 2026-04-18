@@ -93,7 +93,10 @@ export async function mpApiRequest(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    const sanitized = sanitizeErrorMessage(text);
+    // MP echoes the submitted filter/select back in error text, which can
+    // contain user-supplied PII (names, emails, phone numbers). Truncate
+    // before logging or re-raising so the transcript/logs aren't a PII sink.
+    const sanitized = sanitizeErrorMessage(text).slice(0, 200);
     console.error(`[MP API] ${actualMethod} ${endpoint} failed (${response.status}): ${sanitized}`);
     throw new Error(
       `MP API ${actualMethod} ${endpoint} failed (${response.status}): ${sanitized}`
