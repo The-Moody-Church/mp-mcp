@@ -1,6 +1,6 @@
 import express from "express";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
@@ -331,7 +331,10 @@ const mcpRateLimit = rateLimit({
   keyGenerator: (req) => {
     const h = req.headers.authorization;
     if (h?.startsWith("Bearer ")) return tokenHash(h.slice(7));
-    return req.ip || "unknown";
+    // Bucket unauthenticated callers by IP. ipKeyGenerator normalizes IPv6
+    // into /64 subnets so a single attacker can't rotate through addresses
+    // in their allocation to bypass the limit.
+    return ipKeyGenerator(req.ip || "unknown");
   },
   message: { error: "Too many requests" },
 });
