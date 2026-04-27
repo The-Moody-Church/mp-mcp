@@ -371,14 +371,33 @@ async function handleMcp(req: express.Request, res: express.Response) {
   // Check if this is an initialize request (new connection)
   const isInitialize = req.method === "POST" && req.body?.method === "initialize";
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  const rpcMethod = req.body?.method as string | undefined;
+  console.log(`[MCP] rpc=${rpcMethod || "-"} session=${sessionId ? "yes" : "no"} init=${isInitialize}`);
 
   // Get existing transport by session ID or user key
   let transport = sessionId
     ? transports.get(sessionId)
     : isInitialize ? undefined : transports.get(transportKey);
 
-  // Create a fresh transport when none exists (initialize, reconnect, or stale session)
+  // If the client sent a session ID we don't recognize and this isn't an
+  // initialize request, the session is stale (server restart, idle sweep,
+  // or eviction). Per the MCP Streamable HTTP spec, return 404 so the
+  // client knows to start a new session via initialize. Without this,
+  // the SDK transport rejects the mismatched session ID with 400 and
+  // clients can get stuck looping with a dead session.
+  if (!transport && sessionId && !isInitialize) {
+    console.log(`[MCP] unknown sessionId=${sessionId} — returning 404 to prompt re-init`);
+    res.status(404).json({
+      jsonrpc: "2.0",
+      error: { code: -32001, message: "Session not found. Please reinitialize." },
+      id: req.body?.id ?? null,
+    });
+    return;
+  }
+
+  // Create a fresh transport when none exists (initialize or first request)
   if (!transport) {
+    console.log(`[MCP] creating new transport (sessionId=${sessionId || "none"} keyHit=${transports.has(transportKey)})`);
     closeTransport(transportKey);
 
     if (transportActivity.size >= MAX_TRANSPORTS) {
@@ -404,8 +423,20 @@ async function handleMcp(req: express.Request, res: express.Response) {
       transports.delete(transportKey);
       transportActivity.delete(transportKey);
     };
+  } else {
+    console.log(`[MCP] reusing transport (sessionId=${transport.sessionId || "none"})`);
   }
-  await transport.handleRequest(req, res, req.body);
+
+  res.on("finish", () => {
+    console.log(`[MCP] response finish: status=${res.statusCode} rpc=${rpcMethod || "-"}`);
+  });
+
+  try {
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error(`[MCP] transport.handleRequest threw rpc=${rpcMethod || "-"}:`, err);
+    throw err;
+  }
 
   // Store by session ID after first request so subsequent requests route correctly
   if (transport.sessionId && !transports.has(transport.sessionId)) {

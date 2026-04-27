@@ -18,20 +18,28 @@ export function registerGenericTools(server: McpServer): void {
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async () => {
-      const tables = getAllowedTables("read");
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify(
-            tables.map((t) => ({
-              table: t,
-              read: isTableAllowed(t, "read"),
-              write: isTableAllowed(t, "write"),
-            })),
-            null, 2
-          ),
-        }],
-      };
+      console.log(`[tool] list_tables called`);
+      try {
+        const tables = getAllowedTables("read");
+        const result = {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify(
+              tables.map((t) => ({
+                table: t,
+                read: isTableAllowed(t, "read"),
+                write: isTableAllowed(t, "write"),
+              })),
+              null, 2
+            ),
+          }],
+        };
+        console.log(`[tool] list_tables returning ${tables.length} tables`);
+        return result;
+      } catch (err) {
+        console.error(`[tool] list_tables threw:`, err);
+        throw err;
+      }
     }
   );
 
@@ -109,29 +117,38 @@ export function registerGenericTools(server: McpServer): void {
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async ({ table, select, filter, orderby, top, skip, distinct }, extra) => {
-      const safeName = validatePathSegment(table, "table");
-      if (!isTableAllowed(safeName, "read")) {
-        const allowed = getAllowedTables("read");
-        return {
-          content: [{ type: "text" as const, text: `Table "${safeName}" is not in the allowlist. Available tables: ${allowed.join(", ")}` }],
-          isError: true,
-        };
+      console.log(`[tool] query_table called table=${table}`);
+      try {
+        const safeName = validatePathSegment(table, "table");
+        if (!isTableAllowed(safeName, "read")) {
+          const allowed = getAllowedTables("read");
+          console.log(`[tool] query_table denied — ${safeName} not in allowlist`);
+          return {
+            content: [{ type: "text" as const, text: `Table "${safeName}" is not in the allowlist. Available tables: ${allowed.join(", ")}` }],
+            isError: true,
+          };
+        }
+
+        const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
+        const qs: Record<string, string | number | boolean | undefined> = {};
+        if (select) qs["$select"] = select;
+        if (filter) qs["$filter"] = filter;
+        if (orderby) qs["$orderby"] = orderby;
+        if (top !== undefined) qs["$top"] = top;
+        if (skip !== undefined) qs["$skip"] = skip;
+        if (distinct) qs["$distinct"] = true;
+
+        console.log(`[tool] query_table calling mpApiRequest for ${safeName}`);
+        const data = await mpApiRequest(mpBaseUrl, accessToken, "GET",
+          `/tables/${encodeURIComponent(safeName)}`, qs
+        );
+        const recordCount = Array.isArray(data) ? data.length : "n/a";
+        console.log(`[tool] query_table returning records=${recordCount}`);
+        return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        console.error(`[tool] query_table threw:`, err);
+        throw err;
       }
-
-      const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
-      const qs: Record<string, string | number | boolean | undefined> = {};
-      if (select) qs["$select"] = select;
-      if (filter) qs["$filter"] = filter;
-      if (orderby) qs["$orderby"] = orderby;
-      if (top !== undefined) qs["$top"] = top;
-      if (skip !== undefined) qs["$skip"] = skip;
-      if (distinct) qs["$distinct"] = true;
-
-      const data = await mpApiRequest(mpBaseUrl, accessToken, "GET",
-        `/tables/${encodeURIComponent(safeName)}`, qs
-      );
-
-      return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
     }
   );
 
