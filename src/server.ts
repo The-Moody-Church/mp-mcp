@@ -28,8 +28,13 @@ Church staff use these tools from regular conversations — present data in plai
 ### Domain Tools (preferred)
 Use find_people, get_person_details, search_groups, get_group_roster, search_events, and get_event_attendance for common queries. These encode the correct FK joins and field names.
 
+### Aggregation Tools (use these instead of fetching rows to count them)
+- **count_rows(table, filter)** — returns just { count: N }. Use this any time you only need a total ("how many active members 65–69") instead of pulling rows with query_table.
+- **group_by_count(table, group_by, filter)** — returns { groups: [{value, count}, ...], total }. Use this for breakdowns ("engagement breakdown", "members by status"). Pass FK joins like Engagement_Level_ID_Table.Engagement_Level so buckets are human-readable.
+- **birth_date_range_for_age(min_age, max_age)** — returns Date_of_Birth bounds plus a ready-made filter snippet. Use this instead of doing date math by hand; Age is calculated and not filterable directly.
+
 ### Generic Tools (power-user fallback)
-query_table and get_record are available for ad-hoc queries. When using them:
+query_table and get_record are available for ad-hoc queries. query_table now wraps responses as { data, row_count, has_more, next_skip } — when has_more is true, re-issue with skip = next_skip. When using them:
 
 **FK join syntax:** Replace _ID with _ID_Table.ColumnName
 - Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status
