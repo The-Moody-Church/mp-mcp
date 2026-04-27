@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-04-18
+**Last updated:** 2026-04-27
 
 ## Current State
 
@@ -55,3 +55,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-14](sessions/2026-04-14.md) — Instructions work, reconnect issues, stable baseline.
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
 - [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
+- [2026-04-27](sessions/2026-04-27.md) — Stale session 404 fix (PR #17). Connector loop after any restart/idle-sweep traced to SDK 400 on mismatched `mcp-session-id`; now returns 404 to trigger client re-init. Diagnostic `[MCP]`/`[tool]` logging added.
