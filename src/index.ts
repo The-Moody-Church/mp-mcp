@@ -415,7 +415,7 @@ async function handleMcp(req: express.Request, res: express.Response) {
 
     transports.set(transportKey, transport);
 
-    const server = createMcpServer();
+    const server = createMcpServer(config);
     await server.connect(transport);
 
     transport.onclose = () => {
