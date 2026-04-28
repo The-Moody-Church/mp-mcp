@@ -10,7 +10,7 @@ The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude D
 
 - OAuth authentication (ProxyOAuthServerProvider → MP OIDC) with `redirect_uri` allowlist, fail-closed group check, fresh-random client secrets on dynamic registration
 - Session management — survives redeploys, token refresh, disconnect/reconnect; per-user transports have a 30-min idle TTL and 500-user cap
-- Server instructions — data model, FK join reference, presentation rules, domain-tool routing hints
+- Server instructions — data model, FK join reference, presentation rules, domain-tool routing hints, optional per-deployment domain conventions via `MEMBER_FILTER` (rendered into the instructions at session-start)
 - Domain tools: find_people, get_person_details, search_groups, get_group_roster, get_group_attendance_summary, search_events, get_event_attendance, get_schedule, get_attendance_summary
 - Aggregation helpers: count_rows, group_by_count, birth_date_range_for_age
 - Generic tools: list_tables, describe_table, query_table (responses now wrapped with `has_more` / `next_skip` for pagination), get_record
@@ -59,4 +59,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
 - [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
 - [2026-04-27](sessions/2026-04-27.md) — Stale session 404 fix (PR #17). Connector loop after any restart/idle-sweep traced to SDK 400 on mismatched `mcp-session-id`; now returns 404 to trigger client re-init. Diagnostic `[MCP]`/`[tool]` logging added.
-- [2026-04-28](sessions/2026-04-28.md) — Aggregation tools, schedule/attendance summaries, pagination metadata, tool-invocation logging (PR #18). Five fixes mined from the log: Metric_Title, FK group_by id+label, URL-length threshold 4096→2000, 23 lookup tables allowlisted, FK catalog with label_column (PR #19). FK ID qualifier regression fix + 3 more non-_ID FKs (PR #20).
+- [2026-04-28](sessions/2026-04-28.md) — Aggregation tools, schedule/attendance summaries, pagination metadata, tool-invocation logging (PR #18). Five fixes mined from the log: Metric_Title, FK group_by id+label, URL-length threshold 4096→2000, 23 lookup tables allowlisted, FK catalog with label_column (PR #19). FK ID qualifier regression fix + 3 more non-_ID FKs (PR #20). Priorities/Group_Focuses allowlisted, tightened "no raw IDs" rule, MEMBER_FILTER env scaffold (PR #21). Three-iteration MEMBER_FILTER tuning arc to make the model apply the configured filter literally — table-location + FK-chain context (PR #22), then "first move" / "no expansion" / "treat as opaque" wording that finally landed (PR #23).
