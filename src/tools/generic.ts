@@ -28,6 +28,7 @@ const COUNT_MAX_PAGES = 50;
 // inferLookupTable for _ID-suffixed names.
 const FK_CATALOG: Record<string, { lookup_table: string; label_column: string }> = {
   Address_ID: { lookup_table: "Addresses", label_column: "City" },
+  Born_From: { lookup_table: "Groups", label_column: "Group_Name" },
   Building_ID: { lookup_table: "Buildings", label_column: "Building_Name" },
   Care_Person: { lookup_table: "Contacts", label_column: "Display_Name" },
   Congregation_ID: { lookup_table: "Congregations", label_column: "Congregation_Name" },
@@ -55,12 +56,14 @@ const FK_CATALOG: Record<string, { lookup_table: string; label_column: string }>
   Parent_Group: { lookup_table: "Groups", label_column: "Group_Name" },
   Participant_ID: { lookup_table: "Participants", label_column: "Display_Name" },
   Participant_Engagement_ID: { lookup_table: "Participant_Engagement", label_column: "Engagement_Level" },
+  Participant_Record: { lookup_table: "Participants", label_column: "Display_Name" },
   Participant_Type_ID: { lookup_table: "Participant_Types", label_column: "Participant_Type" },
   Participation_Status_ID: { lookup_table: "Participation_Statuses", label_column: "Participation_Status" },
   Prefix_ID: { lookup_table: "Prefixes", label_column: "Prefix" },
   Primary_Contact: { lookup_table: "Contacts", label_column: "Display_Name" },
   Program_ID: { lookup_table: "Programs", label_column: "Program_Name" },
   Program_Type_ID: { lookup_table: "Program_Types", label_column: "Program_Type" },
+  Promote_to_Group: { lookup_table: "Groups", label_column: "Group_Name" },
   Room_ID: { lookup_table: "Rooms", label_column: "Room_Name" },
   Service_Type_ID: { lookup_table: "Service_Types", label_column: "Service_Type" },
   Suffix_ID: { lookup_table: "Suffixes", label_column: "Suffix" },
@@ -406,7 +409,13 @@ export function registerGenericTools(server: McpServer): void {
         const labelKey = fkMatch
           ? fkMatch[2]
           : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
-        const selectFields = fkIdCol ? `${fkIdCol},${group_by}` : group_by;
+        // The FK ID column is also the PK of the joined lookup table (e.g.
+        // Participant_Engagement_ID exists both on Participants and on
+        // Participant_Engagement), so an unqualified $select trips MP's
+        // "Ambiguous column name" error. Prefix with the source table.
+        const selectFields = fkIdCol
+          ? `${safeName}.${fkIdCol},${group_by}`
+          : group_by;
 
         // For FK mode: id → { label, count }. Bucket key is the ID (or
         // "(null)" when the FK is missing); label is captured from the first
@@ -429,7 +438,9 @@ export function registerGenericTools(server: McpServer): void {
           ) as Record<string, unknown>[];
           for (const row of page) {
             if (fkIdCol) {
-              const idRaw = row[fkIdCol];
+              // MP's REST layer normally drops the table qualifier from
+              // response keys, but tolerate either shape.
+              const idRaw = row[fkIdCol] ?? row[`${safeName}.${fkIdCol}`];
               const id = typeof idRaw === "number" ? idRaw : null;
               const key = id === null ? "(null)" : String(id);
               const existing = fkBuckets.get(key);
