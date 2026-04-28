@@ -225,6 +225,35 @@ See [`docs/security-posture.md`](docs/security-posture.md) for the full control 
 | `/auth/logout` | GET | Ends session |
 | `/health` | GET | Health check |
 
+## Releases
+
+Images are published to `ghcr.io/the-moody-church/mp-mcp` on every push to `main` and on every git tag matching `v*`.
+
+### Channels
+
+| Tag | Updates on | Use for |
+|-----|-----------|---------|
+| `:latest` | a new stable release is tagged | production (default) |
+| `:0`, `:0.2` | a release in that major/minor is tagged | production, pinned to a major or minor line |
+| `:0.2.0` | never (immutable) | production, pinned to an exact release |
+| `:dev` | every push to `main` | testing the latest commit before it's released |
+| `:sha-abc1234` | never (immutable) | reproducing a specific commit's behavior |
+
+`:latest` only moves when a release is cut — it does **not** track every push to `main`. If you want bleeding-edge, use `:dev`.
+
+### Cutting a release
+
+Releases are git-tag driven. To cut `v0.2.0`:
+
+```bash
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
+```
+
+The push triggers the workflow, which builds the image and tags it `:0.2.0`, `:0.2`, `:0`, and `:latest`. Pre-release identifiers (`v0.2.0-rc.1`) are also accepted by `docker/metadata-action`'s semver matcher and produce only the exact tag (no `:latest` move).
+
+Keep `package.json` `version` in sync with the git tag when you cut one.
+
 ## License
 
 MIT
