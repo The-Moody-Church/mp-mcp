@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-04-28
 
 ## Current State
 
@@ -58,4 +58,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
 - [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
 - [2026-04-27](sessions/2026-04-27.md) — Stale session 404 fix (PR #17). Connector loop after any restart/idle-sweep traced to SDK 400 on mismatched `mcp-session-id`; now returns 404 to trigger client re-init. Diagnostic `[MCP]`/`[tool]` logging added.
-- 2026-04-28 — Added aggregation tools (count_rows, group_by_count, birth_date_range_for_age), pagination metadata on query_table, FK lookup hints in describe_table, get_schedule, get_attendance_summary + Event_Metrics pivot in get_event_attendance, get_group_attendance_summary, and structured tool-invocation logging via TOOL_LOG_PATH.
+- [2026-04-28](sessions/2026-04-28.md) — Aggregation tools, schedule/attendance summaries, pagination metadata, tool-invocation logging (PR #18). Five fixes mined from the log: Metric_Title, FK group_by id+label, URL-length threshold 4096→2000, 23 lookup tables allowlisted, FK catalog with label_column (PR #19). FK ID qualifier regression fix + 3 more non-_ID FKs (PR #20).
