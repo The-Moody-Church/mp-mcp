@@ -17,7 +17,51 @@ Users authenticate with their own MP credentials via OIDC, so they only see data
 
 - Node.js 22+
 - A Ministry Platform instance with OIDC enabled
-- An OIDC client (e.g., `TM.Widgets`) with a redirect URI pointing to your server
+- An OIDC client (e.g., `TM.Widgets`) with a redirect URI pointing to your server (configured in [Setup step 1](#1-configure-oidc))
+- A public HTTPS URL pointing at the server — see [Public HTTPS](#public-https) below
+
+### Public HTTPS
+
+Claude.ai needs to reach this server over HTTPS, so port 3000 must sit behind a reverse proxy with TLS termination. The proxy's public hostname is what you'll set as `PUBLIC_URL`. Three common options:
+
+**Cloudflare Tunnel** — no port forwarding required; Cloudflare handles the cert.
+
+```yaml
+# ~/.cloudflared/config.yml
+tunnel: <your-tunnel-id>
+credentials-file: /path/to/<your-tunnel-id>.json
+ingress:
+  - hostname: mcp.your-church.com
+    service: http://localhost:3000
+  - service: http_status:404
+```
+
+**Caddy** — auto cert via Let's Encrypt.
+
+```caddyfile
+mcp.your-church.com {
+    reverse_proxy localhost:3000
+}
+```
+
+**nginx** — bring your own cert (e.g., certbot).
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name mcp.your-church.com;
+    # ssl_certificate / ssl_certificate_key directives here
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_buffering off;          # MCP uses streamable HTTP
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
 ## Setup
 
@@ -28,6 +72,14 @@ In your Ministry Platform admin, add a redirect URI to your OIDC client:
 ```
 https://your-mcp-domain.example.com/auth/callback
 ```
+
+<!--
+TODO(setup): screenshots and step-by-step for the MP admin OIDC clients page
+- Where to find it in MP admin
+- What scopes the client needs
+- Where to copy the Client ID / Client Secret from
+-->
+
 
 ### 2. Configure environment
 
@@ -91,6 +143,19 @@ cp config/table-access.example.json config/table-access.json
 docker compose up -d
 ```
 
+After the container starts, smoke-test the server:
+
+```bash
+curl https://your-mcp-domain.example.com/health
+# {"status":"ok"}
+```
+
+If the health check fails, inspect logs:
+
+```bash
+docker compose logs mp-mcp
+```
+
 Or build the image locally:
 
 ```bash
@@ -143,6 +208,14 @@ Once the server is running, add it to your Claude Desktop or Claude Code MCP con
 ```
 
 On first use, Claude will direct you to authenticate with your MP credentials in a browser.
+
+<!--
+TODO(setup): screenshots of the first-time auth flow
+- What Claude shows when prompting for auth
+- The MP login screen the user lands on
+- The redirect back to Claude after a successful login
+-->
+
 
 ## Available Tools
 
@@ -240,7 +313,9 @@ Images are published to `ghcr.io/the-moody-church/mp-mcp` on every push to any b
 | `:dev` | every push to any non-`main` branch | previewing a PR before it merges |
 | `:sha-abc1234` | never (immutable) | reproducing a specific commit's behavior |
 
-`:latest` only moves when a release is cut — it does **not** track every push to `main`.
+`:latest` only moves when a release is cut — it does **not** track every push to `main`. The default `image:` line in `docker-compose.example.yml` uses `:latest`, which is fine for most deployments. If you want a slower roll, pin to a minor (`:0.1` — auto-picks up patch releases) or to an exact version (`:0.1.0`, immutable).
+
+Restarting the container to pick up a new image is non-disruptive in normal use — Claude clients reconnect to the MCP server on the next tool call, so users typically just retry their next prompt.
 
 `:dev` is single-tenant — whichever non-`main` branch was pushed most recently wins. If you have multiple PRs in flight and need to test a specific one, use that PR's `:sha-<short>` tag instead.
 
@@ -256,6 +331,19 @@ git push origin v0.2.0
 The push triggers the workflow, which builds the image and tags it `:0.2.0`, `:0.2`, `:0`, and `:latest`. Pre-release identifiers (`v0.2.0-rc.1`) are also accepted by `docker/metadata-action`'s semver matcher and produce only the exact tag (no `:latest` move).
 
 Keep `package.json` `version` in sync with the git tag when you cut one.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Every MP API call returns 404 | `MP_BASE_URL` has a trailing slash, or includes `/ministryplatformapi` | Set the bare URL: `https://your-church.ministryplatform.com` (no slash, no path) |
+| OIDC login fails: "redirect_uri not registered" | The redirect URI configured in MP admin doesn't exactly match `PUBLIC_URL/auth/callback` | Add `https://your-mcp-domain.example.com/auth/callback` to your OIDC client in MP admin |
+| OIDC login redirects to the wrong host | `PUBLIC_URL` doesn't match the public hostname your reverse proxy serves | Set `PUBLIC_URL` to the public HTTPS hostname, no trailing slash |
+| Login succeeds but no tools work / Claude can't list tools | Reverse proxy is buffering streamable HTTP responses | Disable buffering in the proxy (e.g., `proxy_buffering off` in nginx) |
+| `Table 'X' is not allowed` from a tool call | Table missing from `config/table-access.json` | Add it with `"X": { "read": true, "write": false }` and restart the container |
+| `ALLOWED_USER_GROUP_IDS` blocks every login | Typo in the comma-separated IDs, or no current user is in any of the listed groups | Verify IDs in MP admin (System Setup → User Groups) and that the user is a member |
+| `curl /health` works locally but Claude can't reach the server | DNS / proxy not actually routing the public hostname to port 3000 | Test from outside the network: `curl https://your-mcp-domain/health` |
+| Container starts then exits immediately | Missing required env var, or `config/table-access.json` not mounted | Run `docker compose logs mp-mcp` — the error message names the missing piece |
 
 ## License
 
