@@ -9,13 +9,29 @@ import { isToolLoggingEnabled, logToolInvocation } from "./utils/tool-logger.js"
 // ── Presentation instructions (sent to Claude as server-level instructions) ──
 
 function buildDomainConventions(config: AppConfig): string {
-  const memberLine = config.memberFilter
-    ? `- **"member" / "members"** at this church: filter with \`${config.memberFilter}\`. Do not invent a different filter; use this verbatim (qualified to the source table where needed).`
-    : `- **"member" / "members"**: no canonical definition is configured for this church. Ask the user how they identify members before guessing — different MP deployments use Member_Status_ID, Participant_Type_ID, or custom fields.`;
+  if (!config.memberFilter) {
+    return `### Domain Conventions
 
-  return `### Domain Conventions
-${memberLine}
+- **"member" / "members"**: no canonical definition is configured for this church. Ask the user how they identify members before guessing — different MP deployments use Member_Status_ID, Participant_Type_ID, or custom fields.
 `;
+  }
+  return `### Domain Conventions
+
+- **"member" / "members"** at this church: filter with \`${config.memberFilter}\`. Use this verbatim — do not substitute a Participant_Type-based interpretation, do not invent a different filter, and do not fall back if the column doesn't appear where you first looked. Standard MP places membership-status columns on the **Participants** table (not Contacts), so:
+  - Querying Participants directly: use the filter as-written.
+  - Querying Contacts: prefix with \`Participant_Record_Table.\` (e.g., \`Participant_Record_Table.${extractColumnHint(config.memberFilter)}\`).
+  - Querying Event_Participants / Group_Participants: prefix with \`Participant_ID_Table.\` (e.g., \`Participant_ID_Table.${extractColumnHint(config.memberFilter)}\`).
+  When a member-related question naturally targets Participants (engagement level, milestones, group involvement), query Participants directly.
+`;
+}
+
+// Pull the leading column name out of a filter snippet so we can show
+// concrete chained examples in the domain-conventions block. Best-effort —
+// matches the first identifier-like token; falls back to the raw filter if
+// nothing matches.
+function extractColumnHint(filter: string): string {
+  const match = filter.match(/^[\s(]*([A-Za-z_][A-Za-z0-9_]*)/);
+  return match ? `${match[1]} = ...` : filter;
 }
 
 function buildPresentationInstructions(config: AppConfig): string {
