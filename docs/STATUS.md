@@ -49,6 +49,7 @@ mp-mcp (Docker on TMC1, port 3000)
 | Test with second staff account | High | Verify per-user MP security role scoping |
 | Staff onboarding (admin team) | High | Once stable for a week |
 | Review TOOL_LOG_PATH usage data | Medium | Once enabled, mine logs to find next high-value tools |
+| Auto-rewrite nested FK joins | Medium | Server-side rewrite of dot-chained `A_Table.B_Table.X` to underscore-chained `A_Table_B_Table.X` so the model doesn't have to remember MP's quirk. Logged failures repeatedly hit this. |
 | README.md | Low | Setup docs for other MP churches |
 
 ## Session Log

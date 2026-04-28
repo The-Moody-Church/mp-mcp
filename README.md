@@ -46,6 +46,7 @@ cp .env.example .env
 | `PORT` | Server port (default: `3000`) |
 | `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
 | `ALLOWED_REDIRECT_URIS` | (Optional) Comma-separated https URIs accepted for dynamic OAuth client registration in addition to the built-in `https://claude.ai/api/mcp/auth_callback`. |
+| `MEMBER_FILTER` | (Optional) SQL filter snippet identifying "members" at this church (e.g., `Member_Status_ID = 1` or `Participant_Type_ID = 4`). Surfaced to Claude as a domain convention so it doesn't have to guess. Leave empty to make Claude ask before assuming. |
 | `TOOL_LOG_PATH` | (Optional) Path to a JSONL file. When set, every tool call appends `{ ts, user_id, user_name, tool, args, duration_ms, ok, error? }`. Args are logged in full — keep this on a host-local volume. Leave empty to disable. |
 
 ### 3. Configure table allowlist

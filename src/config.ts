@@ -54,6 +54,7 @@ export interface AppConfig {
   port: number;
   allowedUserGroupIds: number[];
   allowedRedirectUris: string[];
+  memberFilter?: string;
 }
 
 export function loadAppConfig(): AppConfig {
@@ -77,6 +78,8 @@ export function loadAppConfig(): AppConfig {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const memberFilter = process.env.MEMBER_FILTER?.trim() || undefined;
+
   return {
     mpBaseUrl: required("MP_BASE_URL").replace(/\/+$/, ""),
     oidcClientId: required("OIDC_CLIENT_ID"),
@@ -85,5 +88,6 @@ export function loadAppConfig(): AppConfig {
     port: parseInt(process.env.PORT || "3000", 10),
     allowedUserGroupIds,
     allowedRedirectUris,
+    memberFilter,
   };
 }
