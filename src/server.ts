@@ -3,6 +3,7 @@ import { registerPeopleTools } from "./tools/people.js";
 import { registerGroupTools } from "./tools/groups.js";
 import { registerEventTools } from "./tools/events.js";
 import { registerGenericTools } from "./tools/generic.js";
+import { isToolLoggingEnabled, logToolInvocation } from "./utils/tool-logger.js";
 
 // ── Presentation instructions (sent to Claude as server-level instructions) ──
 
@@ -26,10 +27,18 @@ Church staff use these tools from regular conversations — present data in plai
 4. **Focus on useful info** — Names, contact info, engagement, dates. Not database metadata.
 
 ### Domain Tools (preferred)
-Use find_people, get_person_details, search_groups, get_group_roster, search_events, and get_event_attendance for common queries. These encode the correct FK joins and field names.
+Use find_people, get_person_details, search_groups, get_group_roster, get_group_attendance_summary, search_events, get_event_attendance, get_schedule, and get_attendance_summary for common queries. These encode the correct FK joins and field names. In particular:
+- get_schedule returns events for a date/range with rooms already joined — use it for "what's happening tomorrow / this Sunday" instead of stitching Events + Event_Rooms by hand.
+- get_attendance_summary aggregates Event_Metrics for a recurring service (e.g., "Sunday Morning Service") into year/month/week buckets with metrics pivoted by name — use it for "YoY service attendance" instead of pulling raw metric rows. get_event_attendance also pivots its metrics output, so each metric (In Person, Online, Headcount) appears as a key directly under "metrics".
+- get_group_attendance_summary returns per-participant attendance counts for a group's meetings over one or two date windows, with optional drift-detection thresholds — use it for "who came consistently last fall but hasn't this spring" instead of pulling raw Event_Participants rows. Group meetings are discovered via Event_Rooms.Group_ID.
+
+### Aggregation Tools (use these instead of fetching rows to count them)
+- **count_rows(table, filter)** — returns just { count: N }. Use this any time you only need a total ("how many active members 65–69") instead of pulling rows with query_table.
+- **group_by_count(table, group_by, filter)** — returns { groups: [{value, count}, ...], total }. Use this for breakdowns ("engagement breakdown", "members by status"). Pass FK joins like Engagement_Level_ID_Table.Engagement_Level so buckets are human-readable.
+- **birth_date_range_for_age(min_age, max_age)** — returns Date_of_Birth bounds plus a ready-made filter snippet. Use this instead of doing date math by hand; Age is calculated and not filterable directly.
 
 ### Generic Tools (power-user fallback)
-query_table and get_record are available for ad-hoc queries. When using them:
+query_table and get_record are available for ad-hoc queries. query_table now wraps responses as { data, row_count, has_more, next_skip } — when has_more is true, re-issue with skip = next_skip. When using them:
 
 **FK join syntax:** Replace _ID with _ID_Table.ColumnName
 - Gender_ID_Table.Gender, Marital_Status_ID_Table.Marital_Status
@@ -63,6 +72,50 @@ Group_Role_Type_ID: 1=Leader, 2=Participant, 3=Servant (volunteer).
 `;
 
 /**
+ * Wrap a tool handler so each invocation appends a JSONL row to TOOL_LOG_PATH.
+ * No-op when logging is disabled. Errors and tool-level isError responses are
+ * recorded with ok: false. Logging never blocks a successful response —
+ * any write failure is surfaced to the console only.
+ */
+function wrapHandlerWithLogging<H extends (...args: unknown[]) => unknown>(
+  toolName: string,
+  handler: H
+): H {
+  if (!isToolLoggingEnabled()) return handler;
+  const wrapped = async (args: unknown, extra: unknown): Promise<unknown> => {
+    const start = Date.now();
+    let ok = true;
+    let error: string | undefined;
+    try {
+      const result = await (handler as unknown as (a: unknown, e: unknown) => Promise<unknown>)(args, extra);
+      const r = result as { isError?: boolean } | undefined;
+      if (r && r.isError) {
+        ok = false;
+        error = "tool_returned_isError";
+      }
+      return result;
+    } catch (err) {
+      ok = false;
+      error = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      const ai = (extra as { authInfo?: { extra?: { userId?: string; userName?: string } } } | undefined)?.authInfo;
+      void logToolInvocation({
+        ts: new Date().toISOString(),
+        user_id: ai?.extra?.userId,
+        user_name: ai?.extra?.userName,
+        tool: toolName,
+        args,
+        duration_ms: Date.now() - start,
+        ok,
+        ...(error !== undefined && { error }),
+      });
+    }
+  };
+  return wrapped as unknown as H;
+}
+
+/**
  * Create and configure the MCP server with all tools registered.
  */
 export function createMcpServer(): McpServer {
@@ -78,6 +131,21 @@ export function createMcpServer(): McpServer {
       instructions: PRESENTATION_INSTRUCTIONS,
     }
   );
+
+  // Patch registerTool so every tool registered below picks up the logging
+  // wrapper without each tool file having to remember to opt in.
+  if (isToolLoggingEnabled()) {
+    const original = server.registerTool.bind(server);
+    type RegisterFn = typeof original;
+    type RegisterArgs = Parameters<RegisterFn>;
+    const patched = ((name: RegisterArgs[0], config: RegisterArgs[1], handler: RegisterArgs[2]) =>
+      original(
+        name,
+        config,
+        wrapHandlerWithLogging(name as string, handler as (...a: unknown[]) => unknown) as RegisterArgs[2]
+      )) as RegisterFn;
+    (server as unknown as { registerTool: RegisterFn }).registerTool = patched;
+  }
 
   // Register domain tools (preferred for staff use)
   registerPeopleTools(server);

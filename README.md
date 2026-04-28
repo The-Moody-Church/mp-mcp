@@ -15,7 +15,7 @@ Users authenticate with their own MP credentials via OIDC, so they only see data
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - A Ministry Platform instance with OIDC enabled
 - An OIDC client (e.g., `TM.Widgets`) with a redirect URI pointing to your server
 
@@ -46,6 +46,7 @@ cp .env.example .env
 | `PORT` | Server port (default: `3000`) |
 | `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
 | `ALLOWED_REDIRECT_URIS` | (Optional) Comma-separated https URIs accepted for dynamic OAuth client registration in addition to the built-in `https://claude.ai/api/mcp/auth_callback`. |
+| `TOOL_LOG_PATH` | (Optional) Path to a JSONL file. When set, every tool call appends `{ ts, user_id, user_name, tool, args, duration_ms, ok, error? }`. Args are logged in full — keep this on a host-local volume. Leave empty to disable. |
 
 ### 3. Configure table allowlist
 
@@ -144,21 +145,46 @@ On first use, Claude will direct you to authenticate with your MP credentials in
 
 ## Available Tools
 
+Domain tools (preferred — they bake in the right FK joins and disambiguation):
+
 | Tool | Description |
 |------|-------------|
-| `list_tables` | List all tables available through the allowlist |
-| `describe_table` | Get field names and sample values for a table |
-| `query_table` | Query records with filters, column selection, sorting, and pagination |
-| `get_record` | Get a single record by table name and ID |
+| `find_people` | Search contacts by name, email, or phone |
+| `get_person_details` | Full profile: contact info, group memberships, recent attendance |
+| `search_groups` | Search groups by name, type, or ministry |
+| `get_group_roster` | Members of a group with roles and dates |
+| `get_group_attendance_summary` | Per-participant attendance over one or two date windows; supports drift-detection thresholds |
+| `search_events` | Search events by date range, name, or program |
+| `get_event_attendance` | Attendees + pivoted Event_Metrics for an event |
+| `get_schedule` | Events on a date / range with rooms already joined; accepts `today` / `tomorrow` / `this_sunday` / `this_week` |
+| `get_attendance_summary` | Aggregate Event_Metrics for a recurring service across year / month / week / per-service buckets |
+
+Aggregation helpers (use these instead of pulling rows to count them):
+
+| Tool | Description |
+|------|-------------|
+| `count_rows` | `{ count: N }` for a table + filter — paginates server-side |
+| `group_by_count` | `{ groups: [{value, count}, ...], total }` — bucket by any column or FK join |
+| `birth_date_range_for_age` | Convert an age range into a Date_of_Birth filter snippet (handles the calculated-Age problem) |
+
+Generic fallbacks (power-user / ad-hoc):
+
+| Tool | Description |
+|------|-------------|
+| `list_tables` | List allowlisted tables |
+| `describe_table` | Field names and types; surfaces `fk_join_prefix` / `lookup_table` for FK columns |
+| `query_table` | Raw filtered query; response wrapped as `{ data, row_count, has_more, next_skip }` |
+| `get_record` | Fetch a single record by ID |
 
 ### Query examples
 
 Claude can use these tools naturally. For example:
 
-- "Show me all events happening this week"
+- "What's on the schedule tomorrow?"
+- "Year-over-year attendance for the Sunday Morning Service"
+- "Mosaic group members who came consistently last fall but haven't this spring"
+- "How many active members are 65–69?"
 - "Look up the contact record for John Smith"
-- "How many people are in the Choir group?"
-- "What fields does the Events table have?"
 
 ### Query syntax
 
