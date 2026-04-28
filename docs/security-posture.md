@@ -30,6 +30,7 @@ This document describes how the MCP server approaches security, what it enforces
 - No OAuth request bodies, no token values, no MCP response bodies are logged.
 - MP error bodies echo user-supplied filter/select fragments (which can include PII) — truncated to 200 characters before being logged or re-thrown.
 - Per-request user identifier in logs is the MP user GUID (`sub`), not the user's name.
+- Tool-invocation logging is **off by default**. When `TOOL_LOG_PATH` is set, the server appends a JSONL row per tool call containing `ts`, `user_id`, `user_name`, `tool`, full `args`, `duration_ms`, `ok`, and `error`. Args are logged unredacted (they include `$filter` strings, search terms, etc.) on the assumption that the path points at a host-local volume that does not leave the box. If the file is ever shipped off-box (Loki, S3, etc.), redact `args` first or accept that names, emails, and phone fragments will travel with it.
 
 ## `query_table` — power-user tool, role-bounded
 

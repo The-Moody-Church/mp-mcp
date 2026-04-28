@@ -4,15 +4,17 @@
 
 ## Current State
 
-The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude Desktop connects via MP OIDC and queries data through 10 tools (6 domain + 4 generic). Three-pass security audit complete — see [`security-posture.md`](security-posture.md).
+The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude Desktop connects via MP OIDC and queries data through 16 tools (9 domain + 3 aggregation helpers + 4 generic). Three-pass security audit complete — see [`security-posture.md`](security-posture.md).
 
 ## What Works
 
 - OAuth authentication (ProxyOAuthServerProvider → MP OIDC) with `redirect_uri` allowlist, fail-closed group check, fresh-random client secrets on dynamic registration
 - Session management — survives redeploys, token refresh, disconnect/reconnect; per-user transports have a 30-min idle TTL and 500-user cap
-- Server instructions (2847 chars) — data model, FK join reference, presentation rules
-- Domain tools: find_people, get_person_details, search_groups, get_group_roster, search_events, get_event_attendance
-- Generic tools: list_tables, describe_table, query_table, get_record
+- Server instructions — data model, FK join reference, presentation rules, domain-tool routing hints
+- Domain tools: find_people, get_person_details, search_groups, get_group_roster, get_group_attendance_summary, search_events, get_event_attendance, get_schedule, get_attendance_summary
+- Aggregation helpers: count_rows, group_by_count, birth_date_range_for_age
+- Generic tools: list_tables, describe_table, query_table (responses now wrapped with `has_more` / `next_skip` for pagination), get_record
+- Optional structured tool-invocation logging via `TOOL_LOG_PATH` (off by default)
 - Rate limiting (120 req/min per token on `/mcp`) and verified-token cache (60s)
 - `npm audit` clean (0 vulnerabilities)
 - GitHub Actions CI → ghcr.io → TMC1 deployment
@@ -46,7 +48,7 @@ mp-mcp (Docker on TMC1, port 3000)
 |------|----------|-------|
 | Test with second staff account | High | Verify per-user MP security role scoping |
 | Staff onboarding (admin team) | High | Once stable for a week |
-| count_records tool | Medium | Avoid pagination for simple counts |
+| Review TOOL_LOG_PATH usage data | Medium | Once enabled, mine logs to find next high-value tools |
 | README.md | Low | Setup docs for other MP churches |
 
 ## Session Log
@@ -56,3 +58,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
 - [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
 - [2026-04-27](sessions/2026-04-27.md) — Stale session 404 fix (PR #17). Connector loop after any restart/idle-sweep traced to SDK 400 on mismatched `mcp-session-id`; now returns 404 to trigger client re-init. Diagnostic `[MCP]`/`[tool]` logging added.
+- 2026-04-28 — Added aggregation tools (count_rows, group_by_count, birth_date_range_for_age), pagination metadata on query_table, FK lookup hints in describe_table, get_schedule, get_attendance_summary + Event_Metrics pivot in get_event_attendance, get_group_attendance_summary, and structured tool-invocation logging via TOOL_LOG_PATH.

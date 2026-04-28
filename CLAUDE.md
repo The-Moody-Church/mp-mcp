@@ -19,7 +19,7 @@ npm start        # Run production build
 - `src/transport.ts` — Authenticated MP API requests with concurrency limiting
 - `src/tools/` — Tool implementations (`people`, `groups`, `events`, `generic`, `auth`)
 - `src/config.ts` — Environment config + table allowlist loading
-- `src/utils/` — Filter sanitization (`filter-sanitize`), URL length handling (`url-builder`)
+- `src/utils/` — Filter sanitization (`filter-sanitize`), URL length handling (`url-builder`), tool invocation logging (`tool-logger`)
 
 ## Key patterns
 
@@ -28,6 +28,7 @@ npm start        # Run production build
 - **Concurrency limiter** (6 max) prevents MP API connection exhaustion
 - **GET→POST fallback** for URLs exceeding IIS's ~4096 char limit
 - **No deletes** — delete operations are intentionally not implemented
+- **Tool-invocation logging** (off by default) — set `TOOL_LOG_PATH` to write a JSONL row per call (user_id, tool, args, duration, ok). Args are unredacted; the path must stay on a host-local volume.
 
 ## Safety
 
