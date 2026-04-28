@@ -229,8 +229,23 @@ export function registerEventTools(server: McpServer): void {
       const hasAttendees = (attendees as unknown[]).length > 0;
 
       if (hasMetrics) {
-        // Strip internal Metric_ID from output
-        result.metrics = (metrics as Record<string, unknown>[]).map(({ Metric_ID, ...rest }) => rest);
+        // Pivot rows like { Metric_Name, Numerical_Value } into a flat
+        // { "In Person": 1027, "Online": 1241 } object so the model doesn't
+        // have to scan an array to find a metric. Falls back to the raw row
+        // when Metric_Name isn't populated.
+        const pivot: Record<string, unknown> = {};
+        const unnamed: unknown[] = [];
+        for (const row of metrics as Record<string, unknown>[]) {
+          const name = row.Metric_Name;
+          if (typeof name === "string" && name) {
+            pivot[name] = row.Numerical_Value ?? null;
+          } else {
+            const { Metric_ID, ...rest } = row;
+            unnamed.push(rest);
+          }
+        }
+        result.metrics = pivot;
+        if (unnamed.length > 0) result.metrics_unnamed = unnamed;
       }
       if (hasAttendees) {
         result.individual_attendance = attendees;
@@ -395,6 +410,208 @@ export function registerEventTools(server: McpServer): void {
 
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    }
+  );
+
+  // ── get_attendance_summary ──────────────────────────────────────────────
+
+  server.registerTool(
+    "get_attendance_summary",
+    {
+      title: "Get Attendance Summary",
+      description:
+        "Aggregate Event_Metrics across a recurring service over time. Returns " +
+        "metric averages and totals per period (year / month / week) with each " +
+        "metric pivoted as a keyed object — collapses queries like " +
+        "\"YoY Sunday Service attendance\" into a single tool call.\n\n" +
+        "All matching events are queried regardless of Cancelled/_Approved; " +
+        "averages are computed over events that actually have a metric value, " +
+        "so cancelled-with-no-data services don't drag the mean. " +
+        "Each bucket reports `events_in_period` (everything matched) alongside " +
+        "per-metric `events_with_value`.",
+      inputSchema: {
+        event_name: z
+          .string()
+          .describe("Substring matched against Event_Title (LIKE %name%). E.g., 'Sunday Morning Service'."),
+        start_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe("Inclusive lower bound for Event_Start_Date (YYYY-MM-DD)."),
+        end_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe("Inclusive upper bound for Event_Start_Date (YYYY-MM-DD). Default: today."),
+        group_by: z
+          .enum(["year", "month", "week", "service"])
+          .optional()
+          .describe("Bucket granularity. 'service' returns one row per event with metrics pivoted (no aggregation). Default: 'year'."),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    },
+    async ({ event_name, start_date, end_date, group_by }, extra) => {
+      const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
+      const groupByMode = group_by ?? "year";
+      const endStr = end_date ?? new Date().toISOString().slice(0, 10);
+
+      // Use [start, end+1day) so events at any time on end_date are included.
+      const endExclusive = (() => {
+        const d = new Date(`${endStr}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+
+      const escapedName = escapeLikeValue(event_name);
+      const events = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Events", {
+        $select: [
+          "Event_ID",
+          "Event_Title",
+          "Event_Start_Date",
+          "Cancelled",
+          "_Approved",
+        ].join(","),
+        $filter:
+          `Event_Title LIKE '%${escapedName}%' AND ` +
+          `Event_Start_Date >= '${start_date}' AND Event_Start_Date < '${endExclusive}'`,
+        $orderby: "Event_Start_Date",
+        $top: 1000,
+      }) as Record<string, unknown>[];
+
+      if (events.length === 0) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              event_name,
+              start_date,
+              end_date: endStr,
+              group_by: groupByMode,
+              buckets: [],
+              message: `No events matched "${event_name}" in that date range.`,
+            }, null, 2),
+          }],
+        };
+      }
+
+      const eventIds = events.map((e) => e.Event_ID as number);
+      const metrics = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Metrics", {
+        $select: [
+          "Event_Metrics.Event_ID",
+          "Metric_ID_Table.Metric_Name",
+          "Numerical_Value",
+        ].join(","),
+        $filter: `Event_Metrics.Event_ID IN (${eventIds.join(",")})`,
+        $top: 1000,
+      }) as Record<string, unknown>[];
+
+      // Group metrics by Event_ID for fast lookup while bucketing.
+      const metricsByEvent = new Map<number, Array<{ name: string; value: number }>>();
+      for (const m of metrics) {
+        const id = m.Event_ID as number;
+        const name = m.Metric_Name;
+        const raw = m.Numerical_Value;
+        if (typeof name !== "string" || name === "" || raw === null || raw === undefined) continue;
+        const value = typeof raw === "number" ? raw : Number(raw);
+        if (!Number.isFinite(value)) continue;
+        if (!metricsByEvent.has(id)) metricsByEvent.set(id, []);
+        metricsByEvent.get(id)!.push({ name, value });
+      }
+
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const bucketKey = (start: Date, eventTitle: string, eventId: number): string => {
+        if (groupByMode === "year") return String(start.getUTCFullYear());
+        if (groupByMode === "month") return `${start.getUTCFullYear()}-${pad(start.getUTCMonth() + 1)}`;
+        if (groupByMode === "week") {
+          // Anchor weeks on Monday (ISO).
+          const d = new Date(start);
+          const dow = d.getUTCDay();
+          const offset = dow === 0 ? -6 : 1 - dow;
+          d.setUTCDate(d.getUTCDate() + offset);
+          return d.toISOString().slice(0, 10);
+        }
+        // 'service' — one bucket per event.
+        return `${start.toISOString().slice(0, 10)}#${eventId}#${eventTitle}`;
+      };
+
+      // For each bucket, accumulate per-metric totals + counts so we can
+      // report avg, total, and the number of events that actually carried a
+      // value for that metric (some events may have In Person but not Online).
+      interface Bucket {
+        period: string;
+        events_in_period: number;
+        metrics: Map<string, { total: number; count: number }>;
+        // For 'service' mode we surface the event title/date alongside.
+        event_title?: string;
+        event_start?: string;
+      }
+      const buckets = new Map<string, Bucket>();
+
+      for (const e of events) {
+        const eventId = e.Event_ID as number;
+        const startRaw = e.Event_Start_Date as string;
+        const eventTitle = (e.Event_Title as string) ?? "";
+        const startDate = new Date(startRaw);
+        const key = bucketKey(startDate, eventTitle, eventId);
+        if (!buckets.has(key)) {
+          const b: Bucket = { period: key, events_in_period: 0, metrics: new Map() };
+          if (groupByMode === "service") {
+            b.event_title = eventTitle;
+            b.event_start = startRaw;
+            b.period = startRaw.slice(0, 10);
+          }
+          buckets.set(key, b);
+        }
+        const bucket = buckets.get(key)!;
+        bucket.events_in_period += 1;
+        const eventMetrics = metricsByEvent.get(eventId) ?? [];
+        for (const { name, value } of eventMetrics) {
+          const existing = bucket.metrics.get(name) ?? { total: 0, count: 0 };
+          existing.total += value;
+          existing.count += 1;
+          bucket.metrics.set(name, existing);
+        }
+      }
+
+      // Sort buckets chronologically. The keys are already lexicographically
+      // sortable for year/month/week; for 'service' we keep insertion order
+      // (events were $orderby'd).
+      const sorted = [...buckets.values()];
+      if (groupByMode !== "service") sorted.sort((a, b) => a.period.localeCompare(b.period));
+
+      const round = (n: number) => Math.round(n * 100) / 100;
+      const out = sorted.map((b) => {
+        const metricsOut: Record<string, { avg: number; total: number; events_with_value: number }> = {};
+        for (const [name, agg] of b.metrics.entries()) {
+          metricsOut[name] = {
+            avg: agg.count > 0 ? round(agg.total / agg.count) : 0,
+            total: agg.total,
+            events_with_value: agg.count,
+          };
+        }
+        const row: Record<string, unknown> = {
+          period: b.period,
+          events_in_period: b.events_in_period,
+          metrics: metricsOut,
+        };
+        if (b.event_title) row.event_title = b.event_title;
+        if (b.event_start) row.event_start = b.event_start;
+        return row;
+      });
+
+      const summary: Record<string, unknown> = {
+        event_name,
+        start_date,
+        end_date: endStr,
+        group_by: groupByMode,
+        events_matched: events.length,
+        buckets: out,
+      };
+      // Hitting exactly $top=1000 means MP may have truncated. Flag it so the
+      // caller knows the trailing buckets are likely incomplete.
+      if (events.length === 1000) summary.truncated = true;
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(summary, null, 2) }],
       };
     }
   );

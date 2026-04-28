@@ -26,7 +26,9 @@ Church staff use these tools from regular conversations — present data in plai
 4. **Focus on useful info** — Names, contact info, engagement, dates. Not database metadata.
 
 ### Domain Tools (preferred)
-Use find_people, get_person_details, search_groups, get_group_roster, search_events, get_event_attendance, and get_schedule for common queries. These encode the correct FK joins and field names. In particular, get_schedule returns events for a date/range with rooms already joined — use it for "what's happening tomorrow / this Sunday" instead of stitching Events + Event_Rooms by hand.
+Use find_people, get_person_details, search_groups, get_group_roster, search_events, get_event_attendance, get_schedule, and get_attendance_summary for common queries. These encode the correct FK joins and field names. In particular:
+- get_schedule returns events for a date/range with rooms already joined — use it for "what's happening tomorrow / this Sunday" instead of stitching Events + Event_Rooms by hand.
+- get_attendance_summary aggregates Event_Metrics for a recurring service (e.g., "Sunday Morning Service") into year/month/week buckets with metrics pivoted by name — use it for "YoY service attendance" instead of pulling raw metric rows. get_event_attendance also pivots its metrics output, so each metric (In Person, Online, Headcount) appears as a key directly under "metrics".
 
 ### Aggregation Tools (use these instead of fetching rows to count them)
 - **count_rows(table, filter)** — returns just { count: N }. Use this any time you only need a total ("how many active members 65–69") instead of pulling rows with query_table.
