@@ -18,6 +18,54 @@ const COUNT_MAX_PAGES = 50;
  * Given a column like "Contact_Status_ID", try common pluralizations and
  * return the first one that exists in the read allowlist.
  */
+// Curated FK metadata: column name → { lookup_table, label_column }.
+// Authoritative for the columns it covers — the model gets the canonical
+// label column instead of guessing (e.g., Metric_ID → Metric_Title, not
+// Metric_Name; Participant_Engagement_ID → Engagement_Level, not
+// Participant_Engagement). Also covers non-_ID FK columns (Primary_Contact,
+// Parent_Group, etc.) that wouldn't otherwise be flagged as foreign keys
+// by the _ID-suffix heuristic. Columns not in the catalog fall back to
+// inferLookupTable for _ID-suffixed names.
+const FK_CATALOG: Record<string, { lookup_table: string; label_column: string }> = {
+  Address_ID: { lookup_table: "Addresses", label_column: "City" },
+  Building_ID: { lookup_table: "Buildings", label_column: "Building_Name" },
+  Care_Person: { lookup_table: "Contacts", label_column: "Display_Name" },
+  Congregation_ID: { lookup_table: "Congregations", label_column: "Congregation_Name" },
+  Contact_ID: { lookup_table: "Contacts", label_column: "Display_Name" },
+  Contact_Status_ID: { lookup_table: "Contact_Statuses", label_column: "Contact_Status" },
+  Descended_From: { lookup_table: "Groups", label_column: "Group_Name" },
+  Event_ID: { lookup_table: "Events", label_column: "Event_Title" },
+  Event_Type_ID: { lookup_table: "Event_Types", label_column: "Event_Type" },
+  Gender_ID: { lookup_table: "Genders", label_column: "Gender" },
+  Group_ID: { lookup_table: "Groups", label_column: "Group_Name" },
+  Group_Role_ID: { lookup_table: "Group_Roles", label_column: "Role_Title" },
+  Group_Type_ID: { lookup_table: "Group_Types", label_column: "Group_Type" },
+  Household_ID: { lookup_table: "Households", label_column: "Household_Name" },
+  Household_Position_ID: { lookup_table: "Household_Positions", label_column: "Household_Position" },
+  Household_Source_ID: { lookup_table: "Household_Sources", label_column: "Household_Source" },
+  Life_Stage_ID: { lookup_table: "Life_Stages", label_column: "Life_Stage" },
+  Marital_Status_ID: { lookup_table: "Marital_Statuses", label_column: "Marital_Status" },
+  Meeting_Day_ID: { lookup_table: "Meeting_Days", label_column: "Meeting_Day" },
+  Meeting_Frequency_ID: { lookup_table: "Meeting_Frequencies", label_column: "Meeting_Frequency" },
+  Member_Status_ID: { lookup_table: "Member_Statuses", label_column: "Member_Status" },
+  Metric_ID: { lookup_table: "Metrics", label_column: "Metric_Title" },
+  Milestone_ID: { lookup_table: "Milestones", label_column: "Milestone_Title" },
+  Ministry_ID: { lookup_table: "Ministries", label_column: "Ministry_Name" },
+  Offsite_Meeting_Address: { lookup_table: "Addresses", label_column: "City" },
+  Parent_Group: { lookup_table: "Groups", label_column: "Group_Name" },
+  Participant_ID: { lookup_table: "Participants", label_column: "Display_Name" },
+  Participant_Engagement_ID: { lookup_table: "Participant_Engagement", label_column: "Engagement_Level" },
+  Participant_Type_ID: { lookup_table: "Participant_Types", label_column: "Participant_Type" },
+  Participation_Status_ID: { lookup_table: "Participation_Statuses", label_column: "Participation_Status" },
+  Prefix_ID: { lookup_table: "Prefixes", label_column: "Prefix" },
+  Primary_Contact: { lookup_table: "Contacts", label_column: "Display_Name" },
+  Program_ID: { lookup_table: "Programs", label_column: "Program_Name" },
+  Program_Type_ID: { lookup_table: "Program_Types", label_column: "Program_Type" },
+  Room_ID: { lookup_table: "Rooms", label_column: "Room_Name" },
+  Service_Type_ID: { lookup_table: "Service_Types", label_column: "Service_Type" },
+  Suffix_ID: { lookup_table: "Suffixes", label_column: "Suffix" },
+};
+
 function inferLookupTable(columnName: string, allowedTables: string[]): string | null {
   if (!columnName.endsWith("_ID")) return null;
   const stem = columnName.slice(0, -3);
@@ -83,9 +131,12 @@ export function registerGenericTools(server: McpServer): void {
       title: "Describe Table",
       description:
         "Get the field names and types for a Ministry Platform table. " +
-        "For columns ending in _ID, also returns an `fk_join_prefix` (use it " +
-        "as `{prefix}.{ColumnOnLookupTable}` in $select) and, when the " +
-        "inferred lookup table is in the allowlist, a `lookup_table` hint.",
+        "Foreign-key columns include `fk_join_prefix` (use as " +
+        "`{prefix}.{ColumnOnLookupTable}` in $select), `lookup_table`, and — " +
+        "when known — `label_column` (the canonical human-readable column on " +
+        "the lookup table; use this directly with the prefix to avoid guessing). " +
+        "Both _ID-suffixed columns and known non-_ID FKs (e.g., Primary_Contact, " +
+        "Parent_Group) are flagged.",
       inputSchema: {
         table: z.string().describe("The MP table name (e.g., 'Contacts', 'Events')"),
       },
@@ -124,7 +175,22 @@ export function registerGenericTools(server: McpServer): void {
           typeof value;
 
         const field: Record<string, unknown> = { name: key, type };
-        if (key.endsWith("_ID") && key !== primaryKey) {
+        if (key === primaryKey) return field;
+
+        // Catalog hit beats inference — covers known label columns and
+        // non-_ID FKs (Primary_Contact, Parent_Group, ...).
+        const catalogEntry = FK_CATALOG[key];
+        if (catalogEntry) {
+          field.fk_join_prefix = `${key}_Table`;
+          field.lookup_table = catalogEntry.lookup_table;
+          field.label_column = catalogEntry.label_column;
+          return field;
+        }
+
+        // Fallback for _ID-suffixed columns we haven't catalogued: emit the
+        // join prefix and best-guess lookup table, but no label_column —
+        // signaling to the caller that the lookup-side column is unknown.
+        if (key.endsWith("_ID")) {
           field.fk_join_prefix = `${key}_Table`;
           const lookup = inferLookupTable(key, allowed);
           if (lookup) field.lookup_table = lookup;
@@ -297,10 +363,13 @@ export function registerGenericTools(server: McpServer): void {
     {
       title: "Group By Count",
       description:
-        "Count rows grouped by a column. Returns `{ groups: [{ value, count }, ...], total }`. " +
-        "Implemented by selecting just the group-by column server-side and " +
-        "counting in-memory, so payload to the model is tiny regardless of row count. " +
-        "Capped at 50,000 matching rows; if the cap is hit, the response includes `capped: true`.\n\n" +
+        "Count rows grouped by a column. " +
+        "For a single-hop FK join (`<col>_ID_Table.<label>`) returns `{ groups: [{ id, label, count }, ...], total }` — " +
+        "the underlying ID is selected alongside the label so labels can be cross-checked against IDs and " +
+        "ambiguous label columns can't silently merge buckets. For other columns returns `{ groups: [{ value, count }, ...], total }`. " +
+        "Implemented by selecting just the group-by column(s) server-side and counting in-memory, so the payload " +
+        "to the model is tiny regardless of row count. Capped at 50,000 matching rows; if the cap is hit, the " +
+        "response includes `capped: true`.\n\n" +
         "Use FK joins in `group_by` to bucket by human-readable values, e.g.:\n" +
         "  group_by='Engagement_Level_ID_Table.Engagement_Level'\n" +
         "  group_by='Contact_Status_ID_Table.Contact_Status'",
@@ -308,7 +377,8 @@ export function registerGenericTools(server: McpServer): void {
         table: z.string().describe("The MP table name"),
         group_by: z.string().describe(
           "Column to group by. Use an FK join (e.g., Gender_ID_Table.Gender) " +
-          "to bucket by the lookup label rather than the raw ID."
+          "to bucket by the lookup label rather than the raw ID — the ID is " +
+          "returned alongside the label so the result is unambiguous."
         ),
         filter: z.string().optional().describe("SQL WHERE clause (same syntax as query_table.filter)"),
       },
@@ -327,19 +397,29 @@ export function registerGenericTools(server: McpServer): void {
         }
 
         const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
-        // The grouping column may be an FK join like "Foo_ID_Table.Bar" — the
-        // value comes back from MP keyed by just the trailing column name.
-        const responseKey = group_by.includes(".")
-          ? group_by.split(".").pop()!
-          : group_by;
+        // Detect a single-hop FK join: "Foo_ID_Table.Bar". Bucketing by the
+        // FK ID (instead of the label) defends against label-column collisions
+        // where MP resolves the join to the wrong source table — labels can
+        // collide silently, IDs can't.
+        const fkMatch = group_by.match(/^([A-Za-z0-9_]+)_ID_Table\.([A-Za-z0-9_]+)$/);
+        const fkIdCol = fkMatch ? `${fkMatch[1]}_ID` : null;
+        const labelKey = fkMatch
+          ? fkMatch[2]
+          : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
+        const selectFields = fkIdCol ? `${fkIdCol},${group_by}` : group_by;
 
+        // For FK mode: id → { label, count }. Bucket key is the ID (or
+        // "(null)" when the FK is missing); label is captured from the first
+        // row seen for that ID.
+        const fkBuckets = new Map<string, { id: number | null; label: unknown; count: number }>();
+        // For non-FK mode: existing label-keyed counts.
         const counts = new Map<string, number>();
         let total = 0;
         let pages = 0;
         let capped = false;
         for (let skip = 0; pages < COUNT_MAX_PAGES; skip += COUNT_PAGE_SIZE) {
           const qs: Record<string, string | number | undefined> = {
-            $select: group_by,
+            $select: selectFields,
             $top: COUNT_PAGE_SIZE,
           };
           if (skip) qs["$skip"] = skip;
@@ -348,9 +428,21 @@ export function registerGenericTools(server: McpServer): void {
             `/tables/${encodeURIComponent(safeName)}`, qs
           ) as Record<string, unknown>[];
           for (const row of page) {
-            const raw = row[responseKey];
-            const key = raw === null || raw === undefined ? "(null)" : String(raw);
-            counts.set(key, (counts.get(key) ?? 0) + 1);
+            if (fkIdCol) {
+              const idRaw = row[fkIdCol];
+              const id = typeof idRaw === "number" ? idRaw : null;
+              const key = id === null ? "(null)" : String(id);
+              const existing = fkBuckets.get(key);
+              if (existing) {
+                existing.count += 1;
+              } else {
+                fkBuckets.set(key, { id, label: row[labelKey] ?? null, count: 1 });
+              }
+            } else {
+              const raw = row[labelKey];
+              const key = raw === null || raw === undefined ? "(null)" : String(raw);
+              counts.set(key, (counts.get(key) ?? 0) + 1);
+            }
             total += 1;
           }
           pages += 1;
@@ -361,12 +453,16 @@ export function registerGenericTools(server: McpServer): void {
           }
         }
 
-        const groups = [...counts.entries()]
-          .map(([value, count]) => ({ value, count }))
-          .sort((a, b) => b.count - a.count);
+        const groups = fkIdCol
+          ? [...fkBuckets.values()]
+              .map(({ id, label, count }) => ({ id, label, count }))
+              .sort((a, b) => b.count - a.count)
+          : [...counts.entries()]
+              .map(([value, count]) => ({ value, count }))
+              .sort((a, b) => b.count - a.count);
         const result: Record<string, unknown> = { groups, total };
         if (capped) result.capped = true;
-        console.log(`[tool] group_by_count returning buckets=${groups.length} total=${total} capped=${capped}`);
+        console.log(`[tool] group_by_count returning buckets=${groups.length} total=${total} capped=${capped} fk=${!!fkIdCol}`);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         console.error(`[tool] group_by_count threw:`, err);
