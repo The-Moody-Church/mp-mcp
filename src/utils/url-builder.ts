@@ -1,8 +1,12 @@
 /**
- * IIS has a ~4096 character URL limit. Exceeding it returns a cryptic 404.
- * We detect this and switch GET requests to POST /tables/{table}/get.
+ * IIS rejects long requests with a cryptic 404 (HTML error page, not the JSON
+ * error MP normally returns). Two limits matter: the overall URL cap (~4096
+ * by default) and the query-string cap (~2048 by default). MP's actual limits
+ * are configured by the operator, so we use the conservative 2000 figure to
+ * stay under the typical query-string cap as well as the URL cap. Above the
+ * threshold we switch GET requests to POST /tables/{table}/get.
  */
-const MAX_URL_LENGTH = 4096;
+const MAX_URL_LENGTH = 2000;
 
 export interface QueryParams {
   [key: string]: string | number | boolean | undefined;
