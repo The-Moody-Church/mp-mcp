@@ -3,6 +3,7 @@ import { registerPeopleTools } from "./tools/people.js";
 import { registerGroupTools } from "./tools/groups.js";
 import { registerEventTools } from "./tools/events.js";
 import { registerGenericTools } from "./tools/generic.js";
+import { isToolLoggingEnabled, logToolInvocation } from "./utils/tool-logger.js";
 
 // ── Presentation instructions (sent to Claude as server-level instructions) ──
 
@@ -71,6 +72,50 @@ Group_Role_Type_ID: 1=Leader, 2=Participant, 3=Servant (volunteer).
 `;
 
 /**
+ * Wrap a tool handler so each invocation appends a JSONL row to TOOL_LOG_PATH.
+ * No-op when logging is disabled. Errors and tool-level isError responses are
+ * recorded with ok: false. Logging never blocks a successful response —
+ * any write failure is surfaced to the console only.
+ */
+function wrapHandlerWithLogging<H extends (...args: unknown[]) => unknown>(
+  toolName: string,
+  handler: H
+): H {
+  if (!isToolLoggingEnabled()) return handler;
+  const wrapped = async (args: unknown, extra: unknown): Promise<unknown> => {
+    const start = Date.now();
+    let ok = true;
+    let error: string | undefined;
+    try {
+      const result = await (handler as unknown as (a: unknown, e: unknown) => Promise<unknown>)(args, extra);
+      const r = result as { isError?: boolean } | undefined;
+      if (r && r.isError) {
+        ok = false;
+        error = "tool_returned_isError";
+      }
+      return result;
+    } catch (err) {
+      ok = false;
+      error = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      const ai = (extra as { authInfo?: { extra?: { userId?: string; userName?: string } } } | undefined)?.authInfo;
+      void logToolInvocation({
+        ts: new Date().toISOString(),
+        user_id: ai?.extra?.userId,
+        user_name: ai?.extra?.userName,
+        tool: toolName,
+        args,
+        duration_ms: Date.now() - start,
+        ok,
+        ...(error !== undefined && { error }),
+      });
+    }
+  };
+  return wrapped as unknown as H;
+}
+
+/**
  * Create and configure the MCP server with all tools registered.
  */
 export function createMcpServer(): McpServer {
@@ -86,6 +131,21 @@ export function createMcpServer(): McpServer {
       instructions: PRESENTATION_INSTRUCTIONS,
     }
   );
+
+  // Patch registerTool so every tool registered below picks up the logging
+  // wrapper without each tool file having to remember to opt in.
+  if (isToolLoggingEnabled()) {
+    const original = server.registerTool.bind(server);
+    type RegisterFn = typeof original;
+    type RegisterArgs = Parameters<RegisterFn>;
+    const patched = ((name: RegisterArgs[0], config: RegisterArgs[1], handler: RegisterArgs[2]) =>
+      original(
+        name,
+        config,
+        wrapHandlerWithLogging(name as string, handler as (...a: unknown[]) => unknown) as RegisterArgs[2]
+      )) as RegisterFn;
+    (server as unknown as { registerTool: RegisterFn }).registerTool = patched;
+  }
 
   // Register domain tools (preferred for staff use)
   registerPeopleTools(server);

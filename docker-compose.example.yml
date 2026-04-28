@@ -8,4 +8,7 @@ services:
     env_file: .env
     volumes:
       - ./config/table-access.json:/app/config/table-access.json:ro
+      # Optional: persist tool-invocation logs outside the container.
+      # Pair with TOOL_LOG_PATH=/app/data/tool-invocations.jsonl in .env.
+      - ./data:/app/data
     restart: unless-stopped
