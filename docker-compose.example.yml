@@ -4,7 +4,8 @@ services:
     #   :latest        — most recent stable release (recommended for production)
     #   :0, :0.2       — pinned major / minor of latest stable release
     #   :0.2.0         — pinned exact release
-    #   :dev           — most recent commit on main (bleeding edge, may break)
+    #   :main          — most recent commit on main (post-merge testing)
+    #   :dev           — most recent commit on any feature branch (PR preview)
     #   :sha-abc1234   — pinned to a specific commit (immutable)
     image: ghcr.io/the-moody-church/mp-mcp:latest
     # Or build locally:

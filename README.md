@@ -227,7 +227,7 @@ See [`docs/security-posture.md`](docs/security-posture.md) for the full control 
 
 ## Releases
 
-Images are published to `ghcr.io/the-moody-church/mp-mcp` on every push to `main` and on every git tag matching `v*`.
+Images are published to `ghcr.io/the-moody-church/mp-mcp` on every push to any branch and on every git tag matching `v*`.
 
 ### Channels
 
@@ -236,10 +236,13 @@ Images are published to `ghcr.io/the-moody-church/mp-mcp` on every push to `main
 | `:latest` | a new stable release is tagged | production (default) |
 | `:0`, `:0.2` | a release in that major/minor is tagged | production, pinned to a major or minor line |
 | `:0.2.0` | never (immutable) | production, pinned to an exact release |
-| `:dev` | every push to `main` | testing the latest commit before it's released |
+| `:main` | every push to `main` | testing the latest merged commit |
+| `:dev` | every push to any non-`main` branch | previewing a PR before it merges |
 | `:sha-abc1234` | never (immutable) | reproducing a specific commit's behavior |
 
-`:latest` only moves when a release is cut — it does **not** track every push to `main`. If you want bleeding-edge, use `:dev`.
+`:latest` only moves when a release is cut — it does **not** track every push to `main`.
+
+`:dev` is single-tenant — whichever non-`main` branch was pushed most recently wins. If you have multiple PRs in flight and need to test a specific one, use that PR's `:sha-<short>` tag instead.
 
 ### Cutting a release
 
