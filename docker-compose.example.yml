@@ -1,12 +1,15 @@
 services:
   mp-mcp:
     # Image channels:
-    #   :latest        — most recent stable release (recommended for production)
-    #   :0, :0.2       — pinned major / minor of latest stable release
-    #   :0.2.0         — pinned exact release
+    #   :latest        — most recent stable release (default, recommended)
+    #   :0, :0.2       — pin to a major / minor; auto-picks up patch releases
+    #   :0.2.0         — pin to an exact release (immutable)
     #   :main          — most recent commit on main (post-merge testing)
     #   :dev           — most recent commit on any feature branch (PR preview)
-    #   :sha-abc1234   — pinned to a specific commit (immutable)
+    #   :sha-abc1234   — pin to a specific commit (immutable)
+    #
+    # Restarting to pick up a new image is non-disruptive — Claude clients
+    # reconnect to the MCP server on the next tool call.
     image: ghcr.io/the-moody-church/mp-mcp:latest
     # Or build locally:
     # build: .
