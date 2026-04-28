@@ -297,10 +297,13 @@ export function registerGenericTools(server: McpServer): void {
     {
       title: "Group By Count",
       description:
-        "Count rows grouped by a column. Returns `{ groups: [{ value, count }, ...], total }`. " +
-        "Implemented by selecting just the group-by column server-side and " +
-        "counting in-memory, so payload to the model is tiny regardless of row count. " +
-        "Capped at 50,000 matching rows; if the cap is hit, the response includes `capped: true`.\n\n" +
+        "Count rows grouped by a column. " +
+        "For a single-hop FK join (`<col>_ID_Table.<label>`) returns `{ groups: [{ id, label, count }, ...], total }` — " +
+        "the underlying ID is selected alongside the label so labels can be cross-checked against IDs and " +
+        "ambiguous label columns can't silently merge buckets. For other columns returns `{ groups: [{ value, count }, ...], total }`. " +
+        "Implemented by selecting just the group-by column(s) server-side and counting in-memory, so the payload " +
+        "to the model is tiny regardless of row count. Capped at 50,000 matching rows; if the cap is hit, the " +
+        "response includes `capped: true`.\n\n" +
         "Use FK joins in `group_by` to bucket by human-readable values, e.g.:\n" +
         "  group_by='Engagement_Level_ID_Table.Engagement_Level'\n" +
         "  group_by='Contact_Status_ID_Table.Contact_Status'",
@@ -308,7 +311,8 @@ export function registerGenericTools(server: McpServer): void {
         table: z.string().describe("The MP table name"),
         group_by: z.string().describe(
           "Column to group by. Use an FK join (e.g., Gender_ID_Table.Gender) " +
-          "to bucket by the lookup label rather than the raw ID."
+          "to bucket by the lookup label rather than the raw ID — the ID is " +
+          "returned alongside the label so the result is unambiguous."
         ),
         filter: z.string().optional().describe("SQL WHERE clause (same syntax as query_table.filter)"),
       },
@@ -327,19 +331,29 @@ export function registerGenericTools(server: McpServer): void {
         }
 
         const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
-        // The grouping column may be an FK join like "Foo_ID_Table.Bar" — the
-        // value comes back from MP keyed by just the trailing column name.
-        const responseKey = group_by.includes(".")
-          ? group_by.split(".").pop()!
-          : group_by;
+        // Detect a single-hop FK join: "Foo_ID_Table.Bar". Bucketing by the
+        // FK ID (instead of the label) defends against label-column collisions
+        // where MP resolves the join to the wrong source table — labels can
+        // collide silently, IDs can't.
+        const fkMatch = group_by.match(/^([A-Za-z0-9_]+)_ID_Table\.([A-Za-z0-9_]+)$/);
+        const fkIdCol = fkMatch ? `${fkMatch[1]}_ID` : null;
+        const labelKey = fkMatch
+          ? fkMatch[2]
+          : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
+        const selectFields = fkIdCol ? `${fkIdCol},${group_by}` : group_by;
 
+        // For FK mode: id → { label, count }. Bucket key is the ID (or
+        // "(null)" when the FK is missing); label is captured from the first
+        // row seen for that ID.
+        const fkBuckets = new Map<string, { id: number | null; label: unknown; count: number }>();
+        // For non-FK mode: existing label-keyed counts.
         const counts = new Map<string, number>();
         let total = 0;
         let pages = 0;
         let capped = false;
         for (let skip = 0; pages < COUNT_MAX_PAGES; skip += COUNT_PAGE_SIZE) {
           const qs: Record<string, string | number | undefined> = {
-            $select: group_by,
+            $select: selectFields,
             $top: COUNT_PAGE_SIZE,
           };
           if (skip) qs["$skip"] = skip;
@@ -348,9 +362,21 @@ export function registerGenericTools(server: McpServer): void {
             `/tables/${encodeURIComponent(safeName)}`, qs
           ) as Record<string, unknown>[];
           for (const row of page) {
-            const raw = row[responseKey];
-            const key = raw === null || raw === undefined ? "(null)" : String(raw);
-            counts.set(key, (counts.get(key) ?? 0) + 1);
+            if (fkIdCol) {
+              const idRaw = row[fkIdCol];
+              const id = typeof idRaw === "number" ? idRaw : null;
+              const key = id === null ? "(null)" : String(id);
+              const existing = fkBuckets.get(key);
+              if (existing) {
+                existing.count += 1;
+              } else {
+                fkBuckets.set(key, { id, label: row[labelKey] ?? null, count: 1 });
+              }
+            } else {
+              const raw = row[labelKey];
+              const key = raw === null || raw === undefined ? "(null)" : String(raw);
+              counts.set(key, (counts.get(key) ?? 0) + 1);
+            }
             total += 1;
           }
           pages += 1;
@@ -361,12 +387,16 @@ export function registerGenericTools(server: McpServer): void {
           }
         }
 
-        const groups = [...counts.entries()]
-          .map(([value, count]) => ({ value, count }))
-          .sort((a, b) => b.count - a.count);
+        const groups = fkIdCol
+          ? [...fkBuckets.values()]
+              .map(({ id, label, count }) => ({ id, label, count }))
+              .sort((a, b) => b.count - a.count)
+          : [...counts.entries()]
+              .map(([value, count]) => ({ value, count }))
+              .sort((a, b) => b.count - a.count);
         const result: Record<string, unknown> = { groups, total };
         if (capped) result.capped = true;
-        console.log(`[tool] group_by_count returning buckets=${groups.length} total=${total} capped=${capped}`);
+        console.log(`[tool] group_by_count returning buckets=${groups.length} total=${total} capped=${capped} fk=${!!fkIdCol}`);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         console.error(`[tool] group_by_count threw:`, err);

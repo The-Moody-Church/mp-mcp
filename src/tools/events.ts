@@ -198,7 +198,7 @@ export function registerEventTools(server: McpServer): void {
       let metrics: unknown[] = [];
       try {
         metrics = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Metrics", {
-          $select: "Event_Metrics.Metric_ID,Metric_ID_Table.Metric_Name,Numerical_Value",
+          $select: "Event_Metrics.Metric_ID,Metric_ID_Table.Metric_Title,Numerical_Value",
           $filter: `Event_Metrics.Event_ID=${eventId}`,
         }) as unknown[];
       } catch {
@@ -229,14 +229,14 @@ export function registerEventTools(server: McpServer): void {
       const hasAttendees = (attendees as unknown[]).length > 0;
 
       if (hasMetrics) {
-        // Pivot rows like { Metric_Name, Numerical_Value } into a flat
+        // Pivot rows like { Metric_Title, Numerical_Value } into a flat
         // { "In Person": 1027, "Online": 1241 } object so the model doesn't
         // have to scan an array to find a metric. Falls back to the raw row
-        // when Metric_Name isn't populated.
+        // when Metric_Title isn't populated.
         const pivot: Record<string, unknown> = {};
         const unnamed: unknown[] = [];
         for (const row of metrics as Record<string, unknown>[]) {
-          const name = row.Metric_Name;
+          const name = row.Metric_Title;
           if (typeof name === "string" && name) {
             pivot[name] = row.Numerical_Value ?? null;
           } else {
@@ -498,7 +498,7 @@ export function registerEventTools(server: McpServer): void {
       const metrics = await mpApiRequest(mpBaseUrl, accessToken, "GET", "/tables/Event_Metrics", {
         $select: [
           "Event_Metrics.Event_ID",
-          "Metric_ID_Table.Metric_Name",
+          "Metric_ID_Table.Metric_Title",
           "Numerical_Value",
         ].join(","),
         $filter: `Event_Metrics.Event_ID IN (${eventIds.join(",")})`,
@@ -509,7 +509,7 @@ export function registerEventTools(server: McpServer): void {
       const metricsByEvent = new Map<number, Array<{ name: string; value: number }>>();
       for (const m of metrics) {
         const id = m.Event_ID as number;
-        const name = m.Metric_Name;
+        const name = m.Metric_Title;
         const raw = m.Numerical_Value;
         if (typeof name !== "string" || name === "" || raw === null || raw === undefined) continue;
         const value = typeof raw === "number" ? raw : Number(raw);
