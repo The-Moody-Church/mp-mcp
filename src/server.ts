@@ -17,11 +17,20 @@ function buildDomainConventions(config: AppConfig): string {
   }
   return `### Domain Conventions
 
-- **"member" / "members"** at this church: filter with \`${config.memberFilter}\`. Use this verbatim — do not substitute a Participant_Type-based interpretation, do not invent a different filter, and do not fall back if the column doesn't appear where you first looked. Standard MP places membership-status columns on the **Participants** table (not Contacts), so:
-  - Querying Participants directly: use the filter as-written.
-  - Querying Contacts: prefix with \`Participant_Record_Table.\` (e.g., \`Participant_Record_Table.${extractColumnHint(config.memberFilter)}\`).
-  - Querying Event_Participants / Group_Participants: prefix with \`Participant_ID_Table.\` (e.g., \`Participant_ID_Table.${extractColumnHint(config.memberFilter)}\`).
-  When a member-related question naturally targets Participants (engagement level, milestones, group involvement), query Participants directly.
+**"member" / "members"** at this church: filter with EXACTLY \`${config.memberFilter}\`. This is the operator-configured authoritative definition for this deployment. Apply it literally and as your FIRST move when the user mentions members — do not preface with a describe_table or a status enumeration to "see what's available", do not run a query_table on the lookup table to broaden the value list, do not start with Participant_Type.
+
+Treat the filter as opaque and final:
+- Apply the operator-configured value EXACTLY. If it says \`= 1\`, use \`= 1\` — never \`IN (1, ...)\`, never expanded to other "member-flavored" statuses, never narrowed.
+- Do not substitute Participant_Type-based filters, even if the user's tenant has a "Member" Participant_Type or types that look member-like.
+- Do not invent columns like \`Membership_Status_ID\`. The configured column is the only one to use.
+- If the user explicitly asks for a different definition (e.g. "include Associate members too"), apply their override on top of this filter, but say so out loud.
+
+Standard MP places membership-status columns on the **Participants** table (not Contacts). Apply the filter where it lives:
+- Querying Participants: \`${config.memberFilter}\` (verbatim).
+- Querying Contacts: \`Participant_Record_Table.${extractColumnHint(config.memberFilter)}\`.
+- Querying Event_Participants / Group_Participants: \`Participant_ID_Table.${extractColumnHint(config.memberFilter)}\`.
+
+When a member-related question naturally targets Participants (engagement, milestones, group involvement), query Participants directly — do not detour through Contacts.
 `;
 }
 
