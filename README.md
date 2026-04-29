@@ -6,15 +6,21 @@ Users authenticate with their own MP credentials via OIDC, so they only see data
 
 ## Quick start (Docker)
 
-You will need a public DNS hostname for Claude to connect to your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container (see [Public HTTPS](#public-https) for examples).
+### 0. Set up the reverse proxy
 
-Create an API Client in MP (**Administration → API Clients**) and set the **Redirect URIs** to:
+You'll need a public DNS hostname for Claude to reach your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container — see [Public HTTPS](#public-https) for examples.
+
+### 1. Create the MP API Client
+
+[In MP under **Administration → API Clients**](#1-configure-oidc), create a client and set the **Redirect URIs** to:
 
 ```
 <PUBLIC_URL>/auth/callback;https://claude.ai/api/mcp/auth_callback;
 ```
 
-Note the **Client ID** and **Client Secret** — you'll plug them into `.env` below.
+Note the **Client ID** and **Client Secret** for the next step.
+
+### 2. Configure and start the container
 
 In the directory where you want the deployment to live:
 
@@ -30,11 +36,22 @@ $EDITOR .env
 docker compose up -d
 ```
 
-Then add `<PUBLIC_URL>/mcp` as the Remote MCP server URL when [connecting Claude](#claudeai-web-app).
+### 3. Add the connector in Claude's organization settings
+
+In claude.ai, go to [**Organization Settings → Connectors**](https://claude.ai/admin-settings/connectors) and click **Add custom web connector**. Set the **Remote MCP server URL** to `<PUBLIC_URL>/mcp`. See [Connecting Claude](#connecting-claude) for the screenshot and full field reference.
+
+### 4. Each user connects from their personal settings
+
+Each staff user opens [their personal connector settings](https://claude.ai/settings/connectors), finds the Ministry Platform connector, clicks **Connect**, and signs in with their MP credentials.
 
 ## Contents
 
 - [Quick start (Docker)](#quick-start-docker)
+  - [0. Set up the reverse proxy](#0-set-up-the-reverse-proxy)
+  - [1. Create the MP API Client](#1-create-the-mp-api-client)
+  - [2. Configure and start the container](#2-configure-and-start-the-container)
+  - [3. Add the connector in Claude's organization settings](#3-add-the-connector-in-claudes-organization-settings)
+  - [4. Each user connects from their personal settings](#4-each-user-connects-from-their-personal-settings)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
   - [Public HTTPS](#public-https)
@@ -47,9 +64,8 @@ Then add `<PUBLIC_URL>/mcp` as the Remote MCP server URL when [connecting Claude
   - [Option B: Node.js (no Docker)](#option-b-nodejs-no-docker)
   - [Option C: Development](#option-c-development)
 - [Connecting Claude](#connecting-claude)
-  - [claude.ai (web app)](#claudeai-web-app)
-  - [Claude Desktop / Claude Code](#claude-desktop--claude-code)
-  - [First-time authentication](#first-time-authentication)
+  - [1. Add the connector at the organization level](#1-add-the-connector-at-the-organization-level)
+  - [2. Each user enables and signs in](#2-each-user-enables-and-signs-in)
 - [Available Tools](#available-tools)
 - [Security](#security)
   - [Authentication](#authentication)
@@ -280,11 +296,13 @@ This uses `tsx` to watch for changes and restart automatically.
 
 ## Connecting Claude
 
-Two paths, depending on which Claude client your users are on.
+Setup is two stages, and the flow is the same in claude.ai (web) and Claude Desktop — both share the connectors model.
 
-### claude.ai (web app)
+> **Note:** mp-mcp is designed for use in regular Claude conversations via the connectors UI in claude.ai and Claude Desktop. It can hypothetically be wired into Claude Code via local MCP config, but that path is untested.
 
-Go to **Organization Settings → Connectors** ([direct link](https://claude.ai/admin-settings/connectors)) and click **Add custom web connector**. Fill in the dialog:
+### 1. Add the connector at the organization level
+
+Go to [**Organization Settings → Connectors**](https://claude.ai/admin-settings/connectors) and click **Add custom web connector**. Fill in the dialog:
 
 ![Claude.ai Add custom connector dialog](docs/claude-add-connector.png)
 
@@ -294,31 +312,11 @@ Go to **Organization Settings → Connectors** ([direct link](https://claude.ai/
 | **Remote MCP server URL** | `<PUBLIC_URL>/mcp` — for TMC: `https://mcp.moodychurch.app/mcp` |
 | **OAuth Client ID / Secret** (Advanced settings) | Leave blank — Claude registers dynamically with mp-mcp via the MCP auth protocol |
 
-Once the connector is added, every user in the org can enable it on their account; on first use they'll be redirected to MP to authenticate.
+This makes the Ministry Platform connector available to everyone in the org. It does not sign anyone in.
 
-### Claude Desktop / Claude Code
+### 2. Each user enables and signs in
 
-Add the server to your local MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "ministry-platform": {
-      "type": "streamable-http",
-      "url": "https://your-mcp-domain.example.com/mcp"
-    }
-  }
-}
-```
-
-For TMC: `"url": "https://mcp.moodychurch.app/mcp"`
-
-### First-time authentication
-
-Setup happens in two stages:
-
-1. **Org admin** adds the connector once at the org level — covered in [claude.ai (web app)](#claudeai-web-app) above. This makes the Ministry Platform connector available to everyone in the org but does not sign anyone in.
-2. **Each user** then connects it on their own account. They open [their personal connector settings](https://claude.ai/settings/connectors), find the Ministry Platform connector in the list, and click **Connect**. That opens MP's standard sign-in page in a browser; after a successful login they're returned to Claude, and the connector's settings page now shows it as **Connected** along with the list of available tools.
+Each staff user opens [their personal connector settings](https://claude.ai/settings/connectors), finds the Ministry Platform connector in the list, and clicks **Connect**. That opens MP's standard sign-in page in a browser; after a successful login they're returned to Claude, and the connector's settings page now shows it as **Connected** along with the list of available tools.
 
 Each user signs in with their own MP credentials, so the data they see through Claude matches what their MP security role already permits in the MP web UI.
 
