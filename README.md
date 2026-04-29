@@ -1,8 +1,8 @@
 # Ministry Platform MCP Server
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that gives Claude direct access to [Ministry Platform's](https://www.ministryplatform.com) REST API. Connect Claude Desktop to your MP instance and query contacts, events, groups, and other church data conversationally.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server designed to give Claude direct access to [Ministry Platform's](https://www.ministryplatform.com) REST API. Connect Claude Desktop to your MP instance and query contacts, events, groups, and other church data conversationally. The connector is designed to be read-only by default; write and delete operations can be enabled — use at your own risk.
 
-Users authenticate with their own MP credentials via OIDC, so they only see data their MP security role permits.
+Users authenticate with their own MP credentials via OIDC, so they can only see data their MP security role allows. Write and delete operations are off by default; when enabled on the MCP server, they're still gated by what each user's security role permits.
 
 ## Quick start (Docker)
 
