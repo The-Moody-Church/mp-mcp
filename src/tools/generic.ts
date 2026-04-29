@@ -498,9 +498,7 @@ export function registerGenericTools(server: McpServer): void {
               total += r.count;
             }
           }
-          // Capture rows whose FK is NULL or refers to an ID not in the
-          // lookup table — without this the per-bucket sum would silently
-          // disagree with count_rows on the bare filter.
+          // Capture rows whose FK is NULL.
           const nullFilter = `${safeName}.${fkIdCol} IS NULL`;
           const nullFullFilter = safeFilter ? `(${safeFilter}) AND ${nullFilter}` : nullFilter;
           const nullR = await countRows(nullFullFilter);
@@ -508,6 +506,18 @@ export function registerGenericTools(server: McpServer): void {
           if (nullR.count > 0) {
             buckets.push({ id: null, label: null, count: nullR.count });
             total += nullR.count;
+          }
+          // Final reconciliation: if the bare filter matches more rows than
+          // we've assigned to buckets, the gap is rows whose FK points at an
+          // ID that no longer exists in the lookup table. MP doesn't enforce
+          // FK constraints strictly, so orphans do happen — surface them as
+          // an explicit "(unknown)" bucket instead of letting the totals
+          // silently disagree with count_rows on the same filter.
+          const overallR = await countRows(safeFilter);
+          if (overallR.capped) capped = true;
+          if (overallR.count > total) {
+            buckets.push({ id: null, label: "(unknown FK)", count: overallR.count - total });
+            total = overallR.count;
           }
           groups = buckets.sort((a, b) => b.count - a.count);
         } else {
