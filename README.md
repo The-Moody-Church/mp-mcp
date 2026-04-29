@@ -56,14 +56,15 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
 - [Setup](#setup)
   - [1. Set up public HTTPS](#1-set-up-public-https)
   - [2. Configure OIDC](#2-configure-oidc)
-  - [3. Configure environment](#3-configure-environment)
-  - [4. Configure table allowlist](#4-configure-table-allowlist)
 - [Deployment](#deployment)
   - [Option A: Docker (recommended)](#option-a-docker-recommended)
-  - [Compose options](#compose-options)
-  - [Networking](#networking)
+    - [Compose options](#compose-options)
+    - [Networking](#networking)
   - [Option B: Node.js (no Docker)](#option-b-nodejs-no-docker)
-  - [Option C: Development](#option-c-development)
+- [Configuration](#configuration)
+  - [1. Environment variables](#1-environment-variables)
+  - [2. Table allowlist](#2-table-allowlist)
+  - [Start the server](#start-the-server)
 - [Connecting Claude](#connecting-claude)
   - [1. Add the connector at the organization level](#1-add-the-connector-at-the-organization-level)
   - [2. Each user enables and signs in](#2-each-user-enables-and-signs-in)
@@ -176,93 +177,27 @@ Ministry Platform's OAuth/OIDC clients live under **Administration → API Clien
 **Scopes** — not visible on the General tab. mp-mcp uses `openid`, `offline_access`, and `http://www.thinkministry.com/dataplatform/scopes/all`. If your MP install requires explicit scope authorization on the API Client (typically a separate tab or section), enable all three. Login will fail with a scope-related error if any are missing.
 
 
-### 3. Configure environment
-
-Copy the example env file and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description |
-|----------|-------------|
-| `MP_BASE_URL` | Your MP base URL — no trailing slash, no `/ministryplatformapi` suffix (the server appends that prefix automatically when calling the REST API).<br>Example: `https://your-church.ministryplatform.com`<br>For TMC: `https://moody.ministryplatform.com` |
-| `OIDC_CLIENT_ID` | The OIDC client ID — matches the **Client ID** field on your MP API Client (e.g., `mcp`, `TM.Widgets`) |
-| `OIDC_CLIENT_SECRET` | The OIDC client secret — copied from the **Client Secret** field on your MP API Client |
-| `PUBLIC_URL` | The public URL where this server is hosted.<br>Example: `https://mcp.yourchurch.com`<br>For TMC: `https://mcp.moodychurch.app` |
-| `PORT` | Server port (default: `3000`) |
-| `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
-| `ALLOWED_REDIRECT_URIS` | (Optional) Comma-separated https URIs accepted for dynamic OAuth client registration in addition to the built-in `https://claude.ai/api/mcp/auth_callback`. |
-| `MEMBER_FILTER` | (Optional) SQL filter snippet identifying "members" at this church (e.g., `Member_Status_ID = 1` or `Participant_Type_ID = 4`). Surfaced to Claude as a domain convention so it doesn't have to guess. Leave empty to make Claude ask before assuming. |
-| `TOOL_LOG_PATH` | (Optional) Path to a JSONL file. When set, every tool call appends `{ ts, user_id, user_name, tool, args, duration_ms, ok, error? }`. Args are logged in full — keep this on a host-local volume. Leave empty to disable. |
-
-### 4. Configure table allowlist
-
-Copy the example and customize which tables to expose:
-
-```bash
-cp config/table-access.example.json config/table-access.json
-```
-
-Edit `config/table-access.json` to include only the tables you want accessible through Claude. Each table has a `read` flag (gating the current tools) and a `write` flag (reserved for future write tools — currently unused):
-
-```json
-{
-  "Contacts": { "read": true, "write": false },
-  "Events": { "read": true, "write": false }
-}
-```
-
-Tables not listed are blocked entirely, regardless of the user's MP security role.
-
-**Sensitive tables excluded from the example** — you can add these back if you need them, but they carry extra risk:
-
-- `dp_Users` — auth metadata including password-reset tokens and hash columns. Not required for group-membership checks (the server queries it directly with the user's OIDC token outside the allowlist).
-- `Background_Checks` — criminal-history data. High downside if a misconfigured role exposes them through the REST API.
-- `Form_Responses` — freeform user-submitted text. High PII density and a prompt-injection surface for anything downstream of Claude.
-
 ## Deployment
 
 ### Option A: Docker (recommended)
 
-You don't need to clone the repository — the image is pulled from GHCR. (Cloning the repo is fine if you want to keep the source handy or build locally; it's just not required.) In the directory where you want the deployment to live:
+You don't need to clone the repository — the image is pulled from GHCR. (Cloning the repo is fine if you want to keep the source handy or build locally; it's just not required.) In the directory where you want the deployment to live, grab the example config files:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/docker-compose.example.yml -o docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/.env.example -o .env
 mkdir -p config && curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/config/table-access.example.json -o config/table-access.json
-
-# Edit .env with your credentials (MP_BASE_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, PUBLIC_URL):
-$EDITOR .env
-
-# Optionally trim config/table-access.json to just the tables you need:
-$EDITOR config/table-access.json
-
-# Run
-docker compose up -d
 ```
 
-After the container starts, smoke-test the server:
-
-```bash
-curl https://your-mcp-domain.example.com/health
-# {"status":"ok"}
-```
-
-If the health check fails, inspect logs:
-
-```bash
-docker compose logs mp-mcp
-```
-
-Or build the image locally:
+Or build the image locally instead of pulling from GHCR:
 
 ```bash
 docker build -t mp-mcp .
-docker run -p 3000:3000 --env-file .env -v ./config/table-access.json:/app/config/table-access.json:ro mp-mcp
 ```
 
-### Compose options
+Once the files are in place, [continue to Configuration](#configuration) →
+
+#### Compose options
 
 What's in the example `docker-compose.yml` and what you might change:
 
@@ -271,11 +206,11 @@ What's in the example `docker-compose.yml` and what you might change:
 | `image:` | `ghcr.io/the-moody-church/mp-mcp:latest` | Pin to a specific version (`:0.1.0`) or channel (`:0.1`, `:main`, `:dev`) — see [Releases](#releases). |
 | `ports:` | `"3000:3000"` | Drop this entirely if your reverse proxy reaches mp-mcp via a shared Docker network (see [Networking](#networking) below). |
 | `volumes:` | `./config/table-access.json` (read-only) and `./data` (read-write) | Allowlist mount is required. `./data` is only needed if `TOOL_LOG_PATH` is set in `.env`. |
-| `env_file:` | `.env` | All required env vars live in `.env` — see [Setup → 3. Configure environment](#3-configure-environment). |
+| `env_file:` | `.env` | All required env vars live in `.env` — see [Configuration → Environment variables](#1-environment-variables). |
 | `restart:` | `unless-stopped` | Keep this — auto-recovers from crashes and host reboots. |
 | `build:` | (commented out) | Uncomment if you'd rather build the image locally than pull from GHCR. |
 
-### Networking
+#### Networking
 
 The example file doesn't declare an explicit Docker network. Pick the pattern that matches where your reverse proxy lives:
 
@@ -302,34 +237,93 @@ For TMC the reverse-proxy network is `cloudflared_containers` and cloudflared po
 
 ### Option B: Node.js (no Docker)
 
-Requires Node.js 22 or later.
+Requires Node.js 22 or later. Clone the repo, install dependencies, and build:
 
 ```bash
-# Install and build
+git clone https://github.com/The-Moody-Church/mp-mcp.git
+cd mp-mcp
 npm install
 npm run build
-
-# Run
-npm start
 ```
 
-For production without Docker, use a process manager:
+Copy the example config files to their target names:
+
+```bash
+cp .env.example .env
+cp config/table-access.example.json config/table-access.json
+```
+
+Once the files are in place, [continue to Configuration](#configuration) →
+
+## Configuration
+
+After getting the files in place via Deployment, edit them to match your install.
+
+### 1. Environment variables
+
+Edit `.env` to fill in your values:
+
+| Variable | Description |
+|----------|-------------|
+| `MP_BASE_URL` | Your MP base URL — no trailing slash, no `/ministryplatformapi` suffix (the server appends that prefix automatically when calling the REST API).<br>Example: `https://your-church.ministryplatform.com`<br>For TMC: `https://moody.ministryplatform.com` |
+| `OIDC_CLIENT_ID` | The OIDC client ID — matches the **Client ID** field on your MP API Client (e.g., `mcp`, `TM.Widgets`) |
+| `OIDC_CLIENT_SECRET` | The OIDC client secret — copied from the **Client Secret** field on your MP API Client |
+| `PUBLIC_URL` | The public URL where this server is hosted.<br>Example: `https://mcp.yourchurch.com`<br>For TMC: `https://mcp.moodychurch.app` |
+| `PORT` | Server port (default: `3000`) |
+| `ALLOWED_USER_GROUP_IDS` | (Optional) Comma-separated MP User Group IDs. Only users in these groups can log in. Leave empty to allow any authenticated MP user. |
+| `ALLOWED_REDIRECT_URIS` | (Optional) Comma-separated https URIs accepted for dynamic OAuth client registration in addition to the built-in `https://claude.ai/api/mcp/auth_callback`. |
+| `MEMBER_FILTER` | (Optional) SQL filter snippet identifying "members" at this church (e.g., `Member_Status_ID = 1` or `Participant_Type_ID = 4`). Surfaced to Claude as a domain convention so it doesn't have to guess. Leave empty to make Claude ask before assuming. |
+| `TOOL_LOG_PATH` | (Optional) Path to a JSONL file. When set, every tool call appends `{ ts, user_id, user_name, tool, args, duration_ms, ok, error? }`. Args are logged in full — keep this on a host-local volume. Leave empty to disable. |
+
+### 2. Table allowlist
+
+Edit `config/table-access.json` to include only the tables you want accessible through Claude. Each table has a `read` flag (gating the current tools) and a `write` flag (reserved for future write tools — currently unused):
+
+```json
+{
+  "Contacts": { "read": true, "write": false },
+  "Events": { "read": true, "write": false }
+}
+```
+
+Tables not listed are blocked entirely, regardless of the user's MP security role.
+
+**Sensitive tables excluded from the example** — you can add these back if you need them, but they carry extra risk:
+
+- `dp_Users` — auth metadata including password-reset tokens and hash columns. Not required for group-membership checks (the server queries it directly with the user's OIDC token outside the allowlist).
+- `Background_Checks` — criminal-history data. High downside if a misconfigured role exposes them through the REST API.
+- `Form_Responses` — freeform user-submitted text. High PII density and a prompt-injection surface for anything downstream of Claude.
+
+### Start the server
+
+Once your `.env` and `config/table-access.json` are filled in, start the server:
+
+```bash
+docker compose up -d        # Docker
+# or
+npm start                   # Node.js (production)
+# or
+npm run dev                 # Node.js dev server with auto-reload (not for production)
+```
+
+For Node.js production deployments, run under a process manager so the server auto-restarts on crashes and host reboots:
 
 ```bash
 # With PM2
 npm install -g pm2
 pm2 start dist/index.js --name mp-mcp
 
-# Or with systemd (create a service file)
+# Or with systemd — create a unit file pointing at `node dist/index.js`
 ```
 
-### Option C: Development
+Smoke-test the server:
 
 ```bash
-npm run dev
+curl https://your-mcp-domain.example.com/health
+# {"status":"ok"}
 ```
 
-This uses `tsx` to watch for changes and restart automatically.
+If the health check fails, inspect logs (`docker compose logs mp-mcp` for Docker; whatever you've wired up for Node.js).
 
 ## Connecting Claude
 
@@ -457,7 +451,7 @@ When you later expand the allowlist, you only need to add the new table to this 
 
 ### Table allowlist
 
-`config/table-access.json` is the layer-3 ceiling described above — the place to opt out of sensitive tables (e.g., `Donations`, `Background_Checks`, `Form_Responses`) even when a user's MP role would otherwise grant access. See [Setup → 4. Configure table allowlist](#4-configure-table-allowlist) for the file format and the tables intentionally excluded from the example.
+`config/table-access.json` is the layer-3 ceiling described above — the place to opt out of sensitive tables (e.g., `Donations`, `Background_Checks`, `Form_Responses`) even when a user's MP role would otherwise grant access. See [Configuration → Table allowlist](#2-table-allowlist) for the file format and the tables intentionally excluded from the example.
 
 ### No secrets on client machines
 
