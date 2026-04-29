@@ -2,8 +2,20 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getAllowedTables, isTableAllowed } from "../config.js";
 import { mpApiRequest } from "../transport.js";
+import { qualifyFilterColumns } from "../utils/column-qualifier.js";
 import { validatePathSegment } from "../utils/filter-sanitize.js";
 import { getAuthFromExtra } from "./auth.js";
+
+// Format an MP API / transport error so the original message reaches the
+// caller instead of being collapsed to "Error occurred during tool execution"
+// by the MCP framework when we re-throw.
+function toolErrorResponse(toolName: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    content: [{ type: "text" as const, text: `${toolName} failed: ${message}` }],
+    isError: true,
+  };
+}
 
 // Page size used for server-side pagination when counting rows. MP caps $top
 // at 1000, so this is the largest page we can request.
@@ -256,8 +268,8 @@ export function registerGenericTools(server: McpServer): void {
         const effectiveSkip = skip ?? 0;
         const qs: Record<string, string | number | boolean | undefined> = {};
         if (select) qs["$select"] = select;
-        if (filter) qs["$filter"] = filter;
-        if (orderby) qs["$orderby"] = orderby;
+        if (filter) qs["$filter"] = qualifyFilterColumns(safeName, filter);
+        if (orderby) qs["$orderby"] = qualifyFilterColumns(safeName, orderby);
         qs["$top"] = effectiveTop;
         if (effectiveSkip) qs["$skip"] = effectiveSkip;
         if (distinct) qs["$distinct"] = true;
@@ -278,7 +290,7 @@ export function registerGenericTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       } catch (err) {
         console.error(`[tool] query_table threw:`, err);
-        throw err;
+        return toolErrorResponse("query_table", err);
       }
     }
   );
@@ -327,6 +339,7 @@ export function registerGenericTools(server: McpServer): void {
           return { content: [{ type: "text" as const, text: JSON.stringify({ count: 0 }, null, 2) }] };
         }
         const idColumn = Object.keys(probe[0]).find((k) => k.endsWith("_ID")) ?? Object.keys(probe[0])[0];
+        const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
 
         let total = 0;
         let pages = 0;
@@ -337,7 +350,7 @@ export function registerGenericTools(server: McpServer): void {
             $top: COUNT_PAGE_SIZE,
           };
           if (skip) qs["$skip"] = skip;
-          if (filter) qs["$filter"] = filter;
+          if (safeFilter) qs["$filter"] = safeFilter;
           const page = await mpApiRequest(mpBaseUrl, accessToken, "GET",
             `/tables/${encodeURIComponent(safeName)}`, qs
           ) as Record<string, unknown>[];
@@ -356,7 +369,7 @@ export function registerGenericTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         console.error(`[tool] count_rows threw:`, err);
-        throw err;
+        return toolErrorResponse("count_rows", err);
       }
     }
   );
@@ -376,7 +389,7 @@ export function registerGenericTools(server: McpServer): void {
         "to the model is tiny regardless of row count. Capped at 50,000 matching rows; if the cap is hit, the " +
         "response includes `capped: true`.\n\n" +
         "Use FK joins in `group_by` to bucket by human-readable values, e.g.:\n" +
-        "  group_by='Engagement_Level_ID_Table.Engagement_Level'\n" +
+        "  group_by='Participant_Engagement_ID_Table.Engagement_Level'\n" +
         "  group_by='Contact_Status_ID_Table.Contact_Status'",
       inputSchema: {
         table: z.string().describe("The MP table name"),
@@ -402,22 +415,29 @@ export function registerGenericTools(server: McpServer): void {
         }
 
         const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
-        // Detect a single-hop FK join: "Foo_ID_Table.Bar". Bucketing by the
-        // FK ID (instead of the label) defends against label-column collisions
-        // where MP resolves the join to the wrong source table — labels can
-        // collide silently, IDs can't.
-        const fkMatch = group_by.match(/^([A-Za-z0-9_]+)_ID_Table\.([A-Za-z0-9_]+)$/);
+        // Detect a single-hop FK join: "Foo_ID_Table.Bar" or the qualified
+        // "<Table>.Foo_ID_Table.Bar" form. Bucketing by the FK ID (instead
+        // of the label) defends against label-column collisions where MP
+        // resolves the join to the wrong source table.
+        const fkMatch = group_by.match(
+          /^(?:[A-Za-z0-9_]+\.)?([A-Za-z0-9_]+)_ID_Table\.([A-Za-z0-9_]+)$/
+        );
         const fkIdCol = fkMatch ? `${fkMatch[1]}_ID` : null;
         const labelKey = fkMatch
           ? fkMatch[2]
           : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
-        // The FK ID column is also the PK of the joined lookup table (e.g.
-        // Participant_Engagement_ID exists both on Participants and on
-        // Participant_Engagement), so an unqualified $select trips MP's
-        // "Ambiguous column name" error. Prefix with the source table.
-        const selectFields = fkIdCol
-          ? `${safeName}.${fkIdCol},${group_by}`
-          : group_by;
+        // Always qualify the FK label join with the base table. Without the
+        // prefix, MP can silently bind the FK source to a duplicate column
+        // exposed via a self-referential chain (e.g., Participants ->
+        // Contact_ID_Table -> Participant_Record_Table -> Participants
+        // exposes Participant_Engagement_ID twice; the unqualified join
+        // resolves to the wrong one and labels/counts come back wrong).
+        // The base-table-qualified form forces MP to use the right source.
+        // Same reason for prefixing the ID column in $select.
+        const selectFields = fkMatch
+          ? `${safeName}.${fkIdCol},${safeName}.${fkMatch[1]}_ID_Table.${fkMatch[2]}`
+          : group_by.includes(".") ? group_by : `${safeName}.${group_by}`;
+        const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
 
         // For FK mode: id → { label, count }. Bucket key is the ID (or
         // "(null)" when the FK is missing); label is captured from the first
@@ -434,7 +454,7 @@ export function registerGenericTools(server: McpServer): void {
             $top: COUNT_PAGE_SIZE,
           };
           if (skip) qs["$skip"] = skip;
-          if (filter) qs["$filter"] = filter;
+          if (safeFilter) qs["$filter"] = safeFilter;
           const page = await mpApiRequest(mpBaseUrl, accessToken, "GET",
             `/tables/${encodeURIComponent(safeName)}`, qs
           ) as Record<string, unknown>[];
@@ -479,7 +499,7 @@ export function registerGenericTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         console.error(`[tool] group_by_count threw:`, err);
-        throw err;
+        return toolErrorResponse("group_by_count", err);
       }
     }
   );

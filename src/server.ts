@@ -72,7 +72,7 @@ Use find_people, get_person_details, search_groups, get_group_roster, get_group_
 
 ### Aggregation Tools (use these instead of fetching rows to count them)
 - **count_rows(table, filter)** — returns just { count: N }. Use this any time you only need a total ("how many active members 65–69") instead of pulling rows with query_table.
-- **group_by_count(table, group_by, filter)** — when group_by is an FK label join (e.g. Engagement_Level_ID_Table.Engagement_Level), returns { groups: [{ id, label, count }, ...], total } so the underlying ID is visible alongside the label; otherwise returns { groups: [{ value, count }, ...], total }. Use this for breakdowns ("engagement breakdown", "members by status").
+- **group_by_count(table, group_by, filter)** — when group_by is an FK label join (e.g. Participant_Engagement_ID_Table.Engagement_Level), returns { groups: [{ id, label, count }, ...], total } so the underlying ID is visible alongside the label; otherwise returns { groups: [{ value, count }, ...], total }. Use this for breakdowns ("engagement breakdown", "members by status").
 - **birth_date_range_for_age(min_age, max_age)** — returns Date_of_Birth bounds plus a ready-made filter snippet. Use this instead of doing date math by hand; Age is calculated and not filterable directly.
 
 ### Generic Tools (power-user fallback)
