@@ -511,12 +511,12 @@ export function registerGenericTools(server: McpServer): void {
           // we've assigned to buckets, the gap is rows whose FK points at an
           // ID that no longer exists in the lookup table. MP doesn't enforce
           // FK constraints strictly, so orphans do happen — surface them as
-          // an explicit "(unknown)" bucket instead of letting the totals
+          // an explicit "(other)" bucket instead of letting the totals
           // silently disagree with count_rows on the same filter.
           const overallR = await countRows(safeFilter);
           if (overallR.capped) capped = true;
           if (overallR.count > total) {
-            buckets.push({ id: null, label: "(unknown FK)", count: overallR.count - total });
+            buckets.push({ id: null, label: "(other)", count: overallR.count - total });
             total = overallR.count;
           }
           groups = buckets.sort((a, b) => b.count - a.count);
