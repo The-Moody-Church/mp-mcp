@@ -1,8 +1,8 @@
 # Ministry Platform MCP Server
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server designed to give Claude direct access to [Ministry Platform's](https://www.ministryplatform.com) REST API. Connect Claude Desktop to your MP instance and query contacts, events, groups, and other church data conversationally. The connector is designed to be read-only by default; write and delete operations can be enabled — use at your own risk.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server designed to give Claude direct access to [Ministry Platform's](https://www.ministryplatform.com) REST API. Connect Claude Desktop to your MP instance and query contacts, events, groups, and other church data conversationally. The connector is read-only by default. Writes can be enabled in the allowlist, but no currently shipped tools write — adding write capability is at your own risk.
 
-Users authenticate with their own MP credentials via OIDC, so they can only see data their MP security role allows. Write and delete operations are off by default; when enabled on the MCP server, they're still gated by what each user's security role permits.
+Users authenticate with their own MP credentials via OIDC, so they can only see data their MP security role allows. If writes are ever added, they would be gated by both the user's role and the table's `write` flag in the allowlist.
 
 ## Quick start (Docker)
 
@@ -84,12 +84,11 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
 
 ## Features
 
-- **Read-only tools** — list tables, describe fields, query records, get by ID
+- **Read-only by default** — all shipped tools (domain helpers, aggregations, generic query/get) are read operations; the allowlist's per-table `write` flag is reserved for future write tools (none ship today)
 - **Per-user OIDC auth** — each user signs in with their Ministry Platform credentials
 - **Table allowlist** — configurable cap on which tables are exposed, independent of MP security roles
 - **Concurrency limiting** — respects MP's connection limits
 - **URL length handling** — automatically switches long GET requests to POST fallback
-- **No deletes** — the server exposes no delete operations
 
 ## Prerequisites
 
@@ -213,7 +212,7 @@ Copy the example and customize which tables to expose:
 cp config/table-access.example.json config/table-access.json
 ```
 
-Edit `config/table-access.json` to include only the tables you want accessible through Claude. Each table can be set to read-only or read-write:
+Edit `config/table-access.json` to include only the tables you want accessible through Claude. Each table has a `read` flag (gating the current tools) and a `write` flag (reserved for future write tools — currently unused):
 
 ```json
 {
