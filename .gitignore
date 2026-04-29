@@ -5,3 +5,4 @@ config/table-access.json
 docker-compose.yml
 *.tgz
 *.log
+.DS_Store
