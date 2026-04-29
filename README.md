@@ -396,7 +396,7 @@ Claude can use these tools naturally. For example:
 
 - "What's on the schedule tomorrow?"
 - "Year-over-year attendance for the Sunday Morning Service"
-- "Mosaic group members who came consistently last fall but haven't this spring"
+- "`<Group Name>` group members who came consistently last fall but haven't this spring"
 - "How many active members are 65–69?"
 - "Look up the contact record for John Smith"
 
