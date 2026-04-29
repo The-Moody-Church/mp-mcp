@@ -103,9 +103,12 @@ query_table and get_record are available for ad-hoc queries. query_table now wra
 - Congregation_ID is on Households, not Contacts — use Household_ID_Table_Congregation_ID_Table.Congregation_Name
 - Group_Type_ID does NOT exist on Group_Participants — it's on Groups (join Group_ID_Table_Group_Type_ID_Table.Group_Type)
 - "Day" is not a column on Groups — use Meeting_Day_ID_Table.Meeting_Day
+- Engagement and Member Status live on **Participants**, not Contacts. There is no Engagement_Level_ID or Member_Status_ID on Contacts. To query from Contacts, route through Participant_Record_Table (e.g., Participant_Record_Table_Participant_Engagement_ID_Table.Engagement_Level, Participant_Record_Table_Member_Status_ID_Table.Member_Status). Better: query Participants directly.
+- Non-_ID FK columns drop the _ID before _Table: Primary_Contact_Table.Display_Name (NOT Primary_Contact_ID_Table), Parent_Group_Table.Group_Name, Born_From_Table.Group_Name, Participant_Record_Table.Display_Name. describe_table flags these via fk_join_prefix.
 - The label column on the Participant_Engagement lookup is Engagement_Level (not Participant_Engagement); on Metrics it is Metric_Title (not Metric_Name). When in doubt, describe_table the lookup or use describe_table on the source — its label_column field is authoritative.
 - Nested FK joins in $select DON'T work (e.g., Event_ID_Table.Event_Type_ID_Table.Event_Type fails). Only underscore-chained joins work (e.g., Event_ID_Table_Event_Type_ID_Table.Event_Type). If that also fails, query the lookup table separately.
 - Do NOT use SQL functions in $filter (DATEADD, GETDATE, DATEDIFF, etc.) — MP rejects them as "not safe". Use literal ISO date strings instead: Event_Start_Date >= '2026-04-13'
+- Do NOT HTML-encode operators (&gt;/&lt;) — MP rejects the encoded form as "not safe". Pass >, <, >=, <= literally.
 - Use square brackets for special chars: [State/Region], [Address_Line_1]
 
 ### Attendance
@@ -134,10 +137,15 @@ function wrapHandlerWithLogging<H extends (...args: unknown[]) => unknown>(
     let error: string | undefined;
     try {
       const result = await (handler as unknown as (a: unknown, e: unknown) => Promise<unknown>)(args, extra);
-      const r = result as { isError?: boolean } | undefined;
+      const r = result as { isError?: boolean; content?: Array<{ text?: unknown }> } | undefined;
       if (r && r.isError) {
         ok = false;
-        error = "tool_returned_isError";
+        // Pull the user-visible error text out of the tool response so the
+        // log row carries the actual MP/validation message instead of just
+        // "tool_returned_isError". Truncate to keep one bad row from
+        // ballooning the JSONL line.
+        const text = r.content?.[0]?.text;
+        error = typeof text === "string" ? text.slice(0, 500) : "tool_returned_isError";
       }
       return result;
     } catch (err) {

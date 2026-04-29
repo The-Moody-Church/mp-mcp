@@ -267,7 +267,13 @@ export function registerGenericTools(server: McpServer): void {
         const effectiveTop = top ?? 1000;
         const effectiveSkip = skip ?? 0;
         const qs: Record<string, string | number | boolean | undefined> = {};
-        if (select) qs["$select"] = select;
+        // Bare references in $select on a base table whose column name also
+        // exists on a join chain (e.g., Group_ID on Group_Participants, or
+        // Start_Date/End_Date/Description on Groups) trip MP's "Ambiguous
+        // column name" error. Qualifying with the base table is a no-op for
+        // already-prefixed FK joins (Foo_ID_Table.Bar) since the walker
+        // skips them.
+        if (select) qs["$select"] = qualifyFilterColumns(safeName, select);
         if (filter) qs["$filter"] = qualifyFilterColumns(safeName, filter);
         if (orderby) qs["$orderby"] = qualifyFilterColumns(safeName, orderby);
         qs["$top"] = effectiveTop;
