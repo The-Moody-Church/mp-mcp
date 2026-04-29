@@ -22,3 +22,16 @@ services:
       # Pair with TOOL_LOG_PATH=/app/data/tool-invocations.jsonl in .env.
       - ./data:/app/data
     restart: unless-stopped
+
+# Optional: attach to a shared Docker network instead of publishing port 3000.
+# Use this if your reverse proxy runs as a container on the same host — the
+# proxy can then reach mp-mcp at http://mp-mcp:3000 via the shared network.
+# When enabled, also remove the `ports:` stanza above. See README → Networking.
+#
+#     networks:
+#       - cloudflared
+#
+# networks:
+#   cloudflared:
+#     external: true
+#     name: cloudflared_containers   # change to your reverse-proxy network

@@ -61,6 +61,8 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
   - [3. Configure table allowlist](#3-configure-table-allowlist)
 - [Deployment](#deployment)
   - [Option A: Docker (recommended)](#option-a-docker-recommended)
+  - [Compose options](#compose-options)
+  - [Networking](#networking)
   - [Option B: Node.js (no Docker)](#option-b-nodejs-no-docker)
   - [Option C: Development](#option-c-development)
 - [Connecting Claude](#connecting-claude)
@@ -264,6 +266,44 @@ Or build the image locally:
 docker build -t mp-mcp .
 docker run -p 3000:3000 --env-file .env -v ./config/table-access.json:/app/config/table-access.json:ro mp-mcp
 ```
+
+### Compose options
+
+What's in the example `docker-compose.yml` and what you might change:
+
+| Setting | Default | When to change it |
+|---|---|---|
+| `image:` | `ghcr.io/the-moody-church/mp-mcp:latest` | Pin to a specific version (`:0.1.0`) or channel (`:0.1`, `:main`, `:dev`) — see [Releases](#releases). |
+| `ports:` | `"3000:3000"` | Drop this entirely if your reverse proxy reaches mp-mcp via a shared Docker network (see [Networking](#networking) below). |
+| `volumes:` | `./config/table-access.json` (read-only) and `./data` (read-write) | Allowlist mount is required. `./data` is only needed if `TOOL_LOG_PATH` is set in `.env`. |
+| `env_file:` | `.env` | All required env vars live in `.env` — see [Setup → 2. Configure environment](#2-configure-environment). |
+| `restart:` | `unless-stopped` | Keep this — auto-recovers from crashes and host reboots. |
+| `build:` | (commented out) | Uncomment if you'd rather build the image locally than pull from GHCR. |
+
+### Networking
+
+The example file doesn't declare an explicit Docker network. Pick the pattern that matches where your reverse proxy lives:
+
+**A. Reverse proxy on the host** (cloudflared / nginx / Caddy as a system service). The default `ports: "3000:3000"` mapping is sufficient — your proxy points at `http://localhost:3000` or the host's IP.
+
+**B. Reverse proxy in Docker on the same host** (cloudflared / Caddy / nginx running as a container). Attach mp-mcp to the proxy's external network so the proxy can resolve it by container name, and drop the `ports:` stanza so port 3000 isn't exposed on the host at all:
+
+```yaml
+# Add to docker-compose.yml:
+networks:
+  cloudflared:
+    external: true
+    name: cloudflared_containers   # whatever your reverse-proxy network is called
+
+services:
+  mp-mcp:
+    # ... (rest of the service definition)
+    networks:
+      - cloudflared
+    # Remove the `ports:` block — the reverse proxy reaches us via the network.
+```
+
+For TMC the reverse-proxy network is `cloudflared_containers` and cloudflared points at `http://mp-mcp:3000` — exactly what the [Cloudflare Tunnel route screenshot](#public-https) shows.
 
 ### Option B: Node.js (no Docker)
 
