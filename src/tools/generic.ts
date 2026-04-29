@@ -422,9 +422,7 @@ export function registerGenericTools(server: McpServer): void {
 
         const { mpBaseUrl, accessToken } = getAuthFromExtra(extra);
         // Detect a single-hop FK join: "Foo_ID_Table.Bar" or the qualified
-        // "<Table>.Foo_ID_Table.Bar" form. Bucketing by the FK ID (instead
-        // of the label) defends against label-column collisions where MP
-        // resolves the join to the wrong source table.
+        // "<Table>.Foo_ID_Table.Bar" form.
         const fkMatch = group_by.match(
           /^(?:[A-Za-z0-9_]+\.)?([A-Za-z0-9_]+)_ID_Table\.([A-Za-z0-9_]+)$/
         );
@@ -432,107 +430,118 @@ export function registerGenericTools(server: McpServer): void {
         const labelKey = fkMatch
           ? fkMatch[2]
           : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
-        // FK mode: select ONLY the base-table-qualified ID column. Don't use
-        // the Foo_ID_Table.Bar shorthand here — MP would silently bind the
-        // FK source to a duplicate column reachable via a self-referential
-        // chain (Participants -> Contact_ID_Table -> Participant_Record_Table
-        // -> Participants exposes Participant_Engagement_ID twice), and the
-        // workaround of qualifying the shorthand (Participants.Foo_ID_Table…)
-        // is invalid syntax in MP's REST layer. We resolve labels with a
-        // second query against the lookup table after counting.
-        const selectFields = fkMatch
-          ? `${safeName}.${fkIdCol}`
-          : group_by.includes(".") ? group_by : `${safeName}.${group_by}`;
         const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
 
-        // For FK mode: id → { label, count }. Bucket key is the ID (or
-        // "(null)" when the FK is missing); label is captured from the first
-        // row seen for that ID.
-        const fkBuckets = new Map<string, { id: number | null; label: unknown; count: number }>();
-        // For non-FK mode: existing label-keyed counts.
-        const counts = new Map<string, number>();
+        // Paginated row counter — counts page lengths only, never reads
+        // column values. Robust to MP's bug where the value of a qualified
+        // column on a self-referenceable base table can come back wrong on
+        // pages 2+ (count_rows works correctly because of this same property).
+        async function countRows(filterExpr: string | undefined): Promise<{ count: number; capped: boolean }> {
+          let count = 0;
+          let pages = 0;
+          let capped = false;
+          for (let skip = 0; pages < COUNT_MAX_PAGES; skip += COUNT_PAGE_SIZE) {
+            // $select needs a value but we never read it — pick a column
+            // guaranteed to exist (the FK col itself, or labelKey for non-FK).
+            const probeCol = fkIdCol ?? (labelKey.includes(".") ? labelKey : labelKey);
+            const qs: Record<string, string | number | undefined> = {
+              $select: probeCol,
+              $top: COUNT_PAGE_SIZE,
+            };
+            if (skip) qs["$skip"] = skip;
+            if (filterExpr) qs["$filter"] = filterExpr;
+            const page = await mpApiRequest(mpBaseUrl, accessToken, "GET",
+              `/tables/${encodeURIComponent(safeName)}`, qs
+            ) as Record<string, unknown>[];
+            count += page.length;
+            pages += 1;
+            if (page.length < COUNT_PAGE_SIZE) break;
+            if (pages === COUNT_MAX_PAGES) { capped = true; break; }
+          }
+          return { count, capped };
+        }
+
         let total = 0;
-        let pages = 0;
         let capped = false;
-        for (let skip = 0; pages < COUNT_MAX_PAGES; skip += COUNT_PAGE_SIZE) {
-          const qs: Record<string, string | number | undefined> = {
-            $select: selectFields,
-            $top: COUNT_PAGE_SIZE,
-          };
-          if (skip) qs["$skip"] = skip;
-          if (safeFilter) qs["$filter"] = safeFilter;
-          const page = await mpApiRequest(mpBaseUrl, accessToken, "GET",
-            `/tables/${encodeURIComponent(safeName)}`, qs
+        let groups: Array<Record<string, unknown>>;
+
+        if (fkMatch) {
+          // FK mode: enumerate every (id, label) pair from the lookup table,
+          // then run a count query per id with `<table>.<fkIdCol> = <id>` AND
+          // the user filter. This sidesteps the bucketing bug — we never have
+          // to trust a column value MP returns on a paginated row scan.
+          const allowed = getAllowedTables("read");
+          const lookupTable = FK_CATALOG[fkIdCol!]?.lookup_table
+            ?? inferLookupTable(fkIdCol!, allowed);
+          if (!lookupTable || !isTableAllowed(lookupTable, "read")) {
+            return toolErrorResponse("group_by_count", new Error(
+              `Cannot resolve FK lookup table for column ${fkIdCol}. ` +
+              `Add the lookup table to the read allowlist, or pass a non-FK group_by.`
+            ));
+          }
+          const lookupRows = await mpApiRequest(mpBaseUrl, accessToken, "GET",
+            `/tables/${encodeURIComponent(lookupTable)}`,
+            { $select: `${fkIdCol},${labelKey}`, $top: COUNT_PAGE_SIZE }
           ) as Record<string, unknown>[];
-          for (const row of page) {
-            if (fkIdCol) {
-              // MP's REST layer normally drops the table qualifier from
-              // response keys, but tolerate either shape.
-              const idRaw = row[fkIdCol] ?? row[`${safeName}.${fkIdCol}`];
-              const id = typeof idRaw === "number" ? idRaw : null;
-              const key = id === null ? "(null)" : String(id);
-              const existing = fkBuckets.get(key);
-              if (existing) {
-                existing.count += 1;
-              } else {
-                fkBuckets.set(key, { id, label: null, count: 1 });
-              }
-            } else {
+
+          const buckets: Array<{ id: number | null; label: unknown; count: number }> = [];
+          for (const lookup of lookupRows) {
+            const id = lookup[fkIdCol!];
+            if (typeof id !== "number") continue;
+            const label = lookup[labelKey] ?? null;
+            const idFilter = `${safeName}.${fkIdCol}=${id}`;
+            const fullFilter = safeFilter ? `(${safeFilter}) AND ${idFilter}` : idFilter;
+            const r = await countRows(fullFilter);
+            if (r.capped) capped = true;
+            if (r.count > 0) {
+              buckets.push({ id, label, count: r.count });
+              total += r.count;
+            }
+          }
+          // Capture rows whose FK is NULL or refers to an ID not in the
+          // lookup table — without this the per-bucket sum would silently
+          // disagree with count_rows on the bare filter.
+          const nullFilter = `${safeName}.${fkIdCol} IS NULL`;
+          const nullFullFilter = safeFilter ? `(${safeFilter}) AND ${nullFilter}` : nullFilter;
+          const nullR = await countRows(nullFullFilter);
+          if (nullR.capped) capped = true;
+          if (nullR.count > 0) {
+            buckets.push({ id: null, label: null, count: nullR.count });
+            total += nullR.count;
+          }
+          groups = buckets.sort((a, b) => b.count - a.count);
+        } else {
+          // Non-FK mode: paginate and bucket by the label value as before.
+          // Doesn't have the FK self-join issue — values returned for a
+          // direct (qualified) column are stable across pages.
+          const selectFields = group_by.includes(".") ? group_by : `${safeName}.${group_by}`;
+          const counts = new Map<string, number>();
+          let pages = 0;
+          for (let skip = 0; pages < COUNT_MAX_PAGES; skip += COUNT_PAGE_SIZE) {
+            const qs: Record<string, string | number | undefined> = {
+              $select: selectFields,
+              $top: COUNT_PAGE_SIZE,
+            };
+            if (skip) qs["$skip"] = skip;
+            if (safeFilter) qs["$filter"] = safeFilter;
+            const page = await mpApiRequest(mpBaseUrl, accessToken, "GET",
+              `/tables/${encodeURIComponent(safeName)}`, qs
+            ) as Record<string, unknown>[];
+            for (const row of page) {
               const raw = row[labelKey];
               const key = raw === null || raw === undefined ? "(null)" : String(raw);
               counts.set(key, (counts.get(key) ?? 0) + 1);
+              total += 1;
             }
-            total += 1;
+            pages += 1;
+            if (page.length < COUNT_PAGE_SIZE) break;
+            if (pages === COUNT_MAX_PAGES) { capped = true; break; }
           }
-          pages += 1;
-          if (page.length < COUNT_PAGE_SIZE) break;
-          if (pages === COUNT_MAX_PAGES) {
-            capped = true;
-            break;
-          }
+          groups = [...counts.entries()]
+            .map(([value, count]) => ({ value, count }))
+            .sort((a, b) => (b.count as number) - (a.count as number));
         }
 
-        // Resolve labels via a second query against the FK lookup table.
-        // Doing the join client-side instead of via MP's Foo_ID_Table.Bar
-        // shorthand sidesteps the silent wrong-column bind on self-
-        // referential chains. Lookup tables (Engagement levels, statuses, …)
-        // are tiny so fetching all rows is cheaper than building an IN clause.
-        if (fkIdCol && fkBuckets.size > 0) {
-          const allowed = getAllowedTables("read");
-          const lookupTable = FK_CATALOG[fkIdCol]?.lookup_table
-            ?? inferLookupTable(fkIdCol, allowed);
-          if (lookupTable && isTableAllowed(lookupTable, "read")) {
-            try {
-              const lookupRows = await mpApiRequest(mpBaseUrl, accessToken, "GET",
-                `/tables/${encodeURIComponent(lookupTable)}`,
-                { $select: `${fkIdCol},${labelKey}`, $top: COUNT_PAGE_SIZE }
-              ) as Record<string, unknown>[];
-              const idToLabel = new Map<number, unknown>();
-              for (const r of lookupRows) {
-                const id = r[fkIdCol];
-                if (typeof id === "number") idToLabel.set(id, r[labelKey] ?? null);
-              }
-              for (const bucket of fkBuckets.values()) {
-                if (bucket.id !== null) {
-                  const label = idToLabel.get(bucket.id);
-                  if (label !== undefined) bucket.label = label;
-                }
-              }
-            } catch (lookupErr) {
-              // Label resolution is best-effort — surface in console only,
-              // return ID-keyed buckets without labels.
-              console.error(`[tool] group_by_count label lookup failed:`, lookupErr);
-            }
-          }
-        }
-
-        const groups = fkIdCol
-          ? [...fkBuckets.values()]
-              .map(({ id, label, count }) => ({ id, label, count }))
-              .sort((a, b) => b.count - a.count)
-          : [...counts.entries()]
-              .map(([value, count]) => ({ value, count }))
-              .sort((a, b) => b.count - a.count);
         const result: Record<string, unknown> = { groups, total };
         if (capped) result.capped = true;
         console.log(`[tool] group_by_count returning buckets=${groups.length} total=${total} capped=${capped} fk=${!!fkIdCol}`);
