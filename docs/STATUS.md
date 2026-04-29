@@ -6,6 +6,8 @@
 
 The MCP server is **live and stable** on TMC1 at `mcp.moodychurch.app`. Claude Desktop connects via MP OIDC and queries data through 16 tools (9 domain + 3 aggregation helpers + 4 generic). Three-pass security audit complete — see [`security-posture.md`](security-posture.md).
 
+**Public release v0.1.0 cut on 2026-04-28** — published to `ghcr.io/the-moody-church/mp-mcp` with the standard channel scheme (`:latest` = stable release, `:main` = head of main, `:dev` = head of any non-main branch, `:sha-X` = pinned commit, plus semver tags). README is publication-ready: TOC, Quick start, Public HTTPS examples, OIDC field walkthrough with screenshot, Permission model, Troubleshooting.
+
 ## What Works
 
 - OAuth authentication (ProxyOAuthServerProvider → MP OIDC) with `redirect_uri` allowlist, fail-closed group check, fresh-random client secrets on dynamic registration
@@ -50,7 +52,6 @@ mp-mcp (Docker on TMC1, port 3000)
 | Staff onboarding (admin team) | High | Once stable for a week |
 | Review TOOL_LOG_PATH usage data | Medium | Once enabled, mine logs to find next high-value tools |
 | Auto-rewrite nested FK joins | Medium | Server-side rewrite of dot-chained `A_Table.B_Table.X` to underscore-chained `A_Table_B_Table.X` so the model doesn't have to remember MP's quirk. Logged failures repeatedly hit this. |
-| README.md | Low | Setup docs for other MP churches |
 
 ## Session Log
 
@@ -59,4 +60,4 @@ mp-mcp (Docker on TMC1, port 3000)
 - [2026-04-17](sessions/2026-04-17.md) — Session fix, domain tools, FK join corrections.
 - [2026-04-18](sessions/2026-04-18.md) — Three-pass security audit across 4 PRs; 19 findings fixed, 4 documented as accepted risks, all deployed.
 - [2026-04-27](sessions/2026-04-27.md) — Stale session 404 fix (PR #17). Connector loop after any restart/idle-sweep traced to SDK 400 on mismatched `mcp-session-id`; now returns 404 to trigger client re-init. Diagnostic `[MCP]`/`[tool]` logging added.
-- [2026-04-28](sessions/2026-04-28.md) — Aggregation tools, schedule/attendance summaries, pagination metadata, tool-invocation logging (PR #18). Five fixes mined from the log: Metric_Title, FK group_by id+label, URL-length threshold 4096→2000, 23 lookup tables allowlisted, FK catalog with label_column (PR #19). FK ID qualifier regression fix + 3 more non-_ID FKs (PR #20). Priorities/Group_Focuses allowlisted, tightened "no raw IDs" rule, MEMBER_FILTER env scaffold (PR #21). Three-iteration MEMBER_FILTER tuning arc to make the model apply the configured filter literally — table-location + FK-chain context (PR #22), then "first move" / "no expansion" / "treat as opaque" wording that finally landed (PR #23).
+- [2026-04-28](sessions/2026-04-28.md) — Aggregation tools, schedule/attendance summaries, pagination metadata, tool-invocation logging (PR #18). Five fixes mined from the log: Metric_Title, FK group_by id+label, URL-length threshold 4096→2000, 23 lookup tables allowlisted, FK catalog with label_column (PR #19). FK ID qualifier regression fix + 3 more non-_ID FKs (PR #20). Priorities/Group_Focuses allowlisted, tightened "no raw IDs" rule, MEMBER_FILTER env scaffold (PR #21). Three-iteration MEMBER_FILTER tuning arc to make the model apply the configured filter literally — table-location + FK-chain context (PR #22), then "first move" / "no expansion" / "treat as opaque" wording that finally landed (PR #23). Public release prep: release-channel scheme (`:latest`/`:main`/`:dev`/`:sha-`/semver) via `docker/metadata-action` with scan-before-push (PR #24); bumped `docker/metadata-action` v5→v6 to clear the Node 24 deprecation warning (PR #25); split `:main` (main-only) from `:dev` (any non-main branch, for PR previews) (PR #26); README polish — TOC, Quick start with 5 numbered steps, Public HTTPS examples for cloudflared/Caddy/nginx, OIDC field-by-field table with screenshot, Permission model with the recommended MP Security Role pattern, Troubleshooting (PR #27). v0.1.0 tagged and released on GHCR. Branch cleanup: 19 stale branches removed (4 session + 5 merged + 6 remote-merged + 3 abandoned-after-audit + 1 force-deleted batch).
