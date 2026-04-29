@@ -4,8 +4,37 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that g
 
 Users authenticate with their own MP credentials via OIDC, so they only see data their MP security role permits.
 
+## Quick start (Docker)
+
+You will need a public DNS hostname for Claude to connect to your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container (see [Public HTTPS](#public-https) for examples).
+
+Create an API Client in MP (**Administration → API Clients**) and set the **Redirect URIs** to:
+
+```
+<PUBLIC_URL>/auth/callback;https://claude.ai/api/mcp/auth_callback;
+```
+
+Note the **Client ID** and **Client Secret** — you'll plug them into `.env` below.
+
+In the directory where you want the deployment to live:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/docker-compose.example.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/.env.example -o .env
+mkdir -p config && curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/config/table-access.example.json -o config/table-access.json
+
+# Edit .env (MP_BASE_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, PUBLIC_URL):
+$EDITOR .env
+
+# Start:
+docker compose up -d
+```
+
+Then add `<PUBLIC_URL>/mcp` as the Remote MCP server URL when [connecting Claude](#claudeai-web-app).
+
 ## Contents
 
+- [Quick start (Docker)](#quick-start-docker)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
   - [Public HTTPS](#public-https)
