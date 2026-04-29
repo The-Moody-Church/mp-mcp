@@ -1,6 +1,6 @@
 {
   "name": "mp-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for Ministry Platform — gives Claude direct access to the MP REST API",
   "type": "module",
   "main": "dist/index.js",
