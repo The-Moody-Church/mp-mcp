@@ -432,16 +432,16 @@ export function registerGenericTools(server: McpServer): void {
         const labelKey = fkMatch
           ? fkMatch[2]
           : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
-        // Always qualify the FK label join with the base table. Without the
-        // prefix, MP can silently bind the FK source to a duplicate column
-        // exposed via a self-referential chain (e.g., Participants ->
-        // Contact_ID_Table -> Participant_Record_Table -> Participants
-        // exposes Participant_Engagement_ID twice; the unqualified join
-        // resolves to the wrong one and labels/counts come back wrong).
-        // The base-table-qualified form forces MP to use the right source.
-        // Same reason for prefixing the ID column in $select.
+        // FK mode: select ONLY the base-table-qualified ID column. Don't use
+        // the Foo_ID_Table.Bar shorthand here — MP would silently bind the
+        // FK source to a duplicate column reachable via a self-referential
+        // chain (Participants -> Contact_ID_Table -> Participant_Record_Table
+        // -> Participants exposes Participant_Engagement_ID twice), and the
+        // workaround of qualifying the shorthand (Participants.Foo_ID_Table…)
+        // is invalid syntax in MP's REST layer. We resolve labels with a
+        // second query against the lookup table after counting.
         const selectFields = fkMatch
-          ? `${safeName}.${fkIdCol},${safeName}.${fkMatch[1]}_ID_Table.${fkMatch[2]}`
+          ? `${safeName}.${fkIdCol}`
           : group_by.includes(".") ? group_by : `${safeName}.${group_by}`;
         const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
 
@@ -475,7 +475,7 @@ export function registerGenericTools(server: McpServer): void {
               if (existing) {
                 existing.count += 1;
               } else {
-                fkBuckets.set(key, { id, label: row[labelKey] ?? null, count: 1 });
+                fkBuckets.set(key, { id, label: null, count: 1 });
               }
             } else {
               const raw = row[labelKey];
@@ -489,6 +489,40 @@ export function registerGenericTools(server: McpServer): void {
           if (pages === COUNT_MAX_PAGES) {
             capped = true;
             break;
+          }
+        }
+
+        // Resolve labels via a second query against the FK lookup table.
+        // Doing the join client-side instead of via MP's Foo_ID_Table.Bar
+        // shorthand sidesteps the silent wrong-column bind on self-
+        // referential chains. Lookup tables (Engagement levels, statuses, …)
+        // are tiny so fetching all rows is cheaper than building an IN clause.
+        if (fkIdCol && fkBuckets.size > 0) {
+          const allowed = getAllowedTables("read");
+          const lookupTable = FK_CATALOG[fkIdCol]?.lookup_table
+            ?? inferLookupTable(fkIdCol, allowed);
+          if (lookupTable && isTableAllowed(lookupTable, "read")) {
+            try {
+              const lookupRows = await mpApiRequest(mpBaseUrl, accessToken, "GET",
+                `/tables/${encodeURIComponent(lookupTable)}`,
+                { $select: `${fkIdCol},${labelKey}`, $top: COUNT_PAGE_SIZE }
+              ) as Record<string, unknown>[];
+              const idToLabel = new Map<number, unknown>();
+              for (const r of lookupRows) {
+                const id = r[fkIdCol];
+                if (typeof id === "number") idToLabel.set(id, r[labelKey] ?? null);
+              }
+              for (const bucket of fkBuckets.values()) {
+                if (bucket.id !== null) {
+                  const label = idToLabel.get(bucket.id);
+                  if (label !== undefined) bucket.label = label;
+                }
+              }
+            } catch (lookupErr) {
+              // Label resolution is best-effort — surface in console only,
+              // return ID-keyed buckets without labels.
+              console.error(`[tool] group_by_count label lookup failed:`, lookupErr);
+            }
           }
         }
 
