@@ -8,11 +8,11 @@ Users authenticate with their own MP credentials via OIDC, so they can only see 
 
 ### 0. Set up the reverse proxy
 
-You'll need a public DNS hostname for Claude to reach your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container — see [Public HTTPS](#public-https) for examples.
+You'll need a public DNS hostname for Claude to reach your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container — see [Public HTTPS](#1-set-up-public-https) for examples.
 
 ### 1. Create the MP API Client
 
-[In MP under **Administration → API Clients**](#1-configure-oidc), create a client and set the **Redirect URIs** to:
+[In MP under **Administration → API Clients**](#2-configure-oidc), create a client and set the **Redirect URIs** to:
 
 ```
 <PUBLIC_URL>/auth/callback;https://claude.ai/api/mcp/auth_callback;
@@ -53,12 +53,11 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
   - [3. Add the connector in Claude's organization settings](#3-add-the-connector-in-claudes-organization-settings)
   - [4. Each user connects from their personal settings](#4-each-user-connects-from-their-personal-settings)
 - [Features](#features)
-- [Prerequisites](#prerequisites)
-  - [Public HTTPS](#public-https)
 - [Setup](#setup)
-  - [1. Configure OIDC](#1-configure-oidc)
-  - [2. Configure environment](#2-configure-environment)
-  - [3. Configure table allowlist](#3-configure-table-allowlist)
+  - [1. Set up public HTTPS](#1-set-up-public-https)
+  - [2. Configure OIDC](#2-configure-oidc)
+  - [3. Configure environment](#3-configure-environment)
+  - [4. Configure table allowlist](#4-configure-table-allowlist)
 - [Deployment](#deployment)
   - [Option A: Docker (recommended)](#option-a-docker-recommended)
   - [Compose options](#compose-options)
@@ -90,14 +89,16 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
 - **Concurrency limiting** — respects MP's connection limits
 - **URL length handling** — automatically switches long GET requests to POST fallback
 
-## Prerequisites
+## Setup
 
-- Node.js 22+
-- A Ministry Platform instance with OIDC enabled
-- An OIDC client (e.g., `TM.Widgets`) with a redirect URI pointing to your server (configured in [Setup step 1](#1-configure-oidc))
-- A public HTTPS URL pointing at the server — see [Public HTTPS](#public-https) below
+> **Reference values for The Moody Church's deployment** (used as examples throughout this section):
+>
+> - `MP_BASE_URL` → `https://moody.ministryplatform.com`
+> - `PUBLIC_URL` → `https://mcp.moodychurch.app`
+>
+> Substitute your own values where you see `<MP_BASE_URL>` / `<PUBLIC_URL>` placeholders or generic examples like `your-church.ministryplatform.com`.
 
-### Public HTTPS
+### 1. Set up public HTTPS
 
 Claude.ai needs to reach this server over HTTPS, so port 3000 must sit behind a reverse proxy with TLS termination. The proxy's public hostname is what you'll set as `PUBLIC_URL`. Three common options:
 
@@ -150,16 +151,7 @@ server {
 }
 ```
 
-## Setup
-
-> **Reference values for The Moody Church's deployment** (used as examples throughout this section):
->
-> - `MP_BASE_URL` → `https://moody.ministryplatform.com`
-> - `PUBLIC_URL` → `https://mcp.moodychurch.app`
->
-> Substitute your own values where you see `<MP_BASE_URL>` / `<PUBLIC_URL>` placeholders or generic examples like `your-church.ministryplatform.com`.
-
-### 1. Configure OIDC
+### 2. Configure OIDC
 
 Ministry Platform's OAuth/OIDC clients live under **Administration → API Clients** (search "api" in the MP admin to find it quickly). Create a new API Client for the MCP server using the following settings:
 
@@ -184,7 +176,7 @@ Ministry Platform's OAuth/OIDC clients live under **Administration → API Clien
 **Scopes** — not visible on the General tab. mp-mcp uses `openid`, `offline_access`, and `http://www.thinkministry.com/dataplatform/scopes/all`. If your MP install requires explicit scope authorization on the API Client (typically a separate tab or section), enable all three. Login will fail with a scope-related error if any are missing.
 
 
-### 2. Configure environment
+### 3. Configure environment
 
 Copy the example env file and fill in your values:
 
@@ -204,7 +196,7 @@ cp .env.example .env
 | `MEMBER_FILTER` | (Optional) SQL filter snippet identifying "members" at this church (e.g., `Member_Status_ID = 1` or `Participant_Type_ID = 4`). Surfaced to Claude as a domain convention so it doesn't have to guess. Leave empty to make Claude ask before assuming. |
 | `TOOL_LOG_PATH` | (Optional) Path to a JSONL file. When set, every tool call appends `{ ts, user_id, user_name, tool, args, duration_ms, ok, error? }`. Args are logged in full — keep this on a host-local volume. Leave empty to disable. |
 
-### 3. Configure table allowlist
+### 4. Configure table allowlist
 
 Copy the example and customize which tables to expose:
 
@@ -275,7 +267,7 @@ What's in the example `docker-compose.yml` and what you might change:
 | `image:` | `ghcr.io/the-moody-church/mp-mcp:latest` | Pin to a specific version (`:0.1.0`) or channel (`:0.1`, `:main`, `:dev`) — see [Releases](#releases). |
 | `ports:` | `"3000:3000"` | Drop this entirely if your reverse proxy reaches mp-mcp via a shared Docker network (see [Networking](#networking) below). |
 | `volumes:` | `./config/table-access.json` (read-only) and `./data` (read-write) | Allowlist mount is required. `./data` is only needed if `TOOL_LOG_PATH` is set in `.env`. |
-| `env_file:` | `.env` | All required env vars live in `.env` — see [Setup → 2. Configure environment](#2-configure-environment). |
+| `env_file:` | `.env` | All required env vars live in `.env` — see [Setup → 3. Configure environment](#3-configure-environment). |
 | `restart:` | `unless-stopped` | Keep this — auto-recovers from crashes and host reboots. |
 | `build:` | (commented out) | Uncomment if you'd rather build the image locally than pull from GHCR. |
 
@@ -302,9 +294,11 @@ services:
     # Remove the `ports:` block — the reverse proxy reaches us via the network.
 ```
 
-For TMC the reverse-proxy network is `cloudflared_containers` and cloudflared points at `http://mp-mcp:3000` — exactly what the [Cloudflare Tunnel route screenshot](#public-https) shows.
+For TMC the reverse-proxy network is `cloudflared_containers` and cloudflared points at `http://mp-mcp:3000` — exactly what the [Cloudflare Tunnel route screenshot](#1-set-up-public-https) shows.
 
 ### Option B: Node.js (no Docker)
+
+Requires Node.js 22 or later.
 
 ```bash
 # Install and build
@@ -454,7 +448,7 @@ When you later expand the allowlist, you only need to add the new table to this 
 
 ### Table allowlist
 
-`config/table-access.json` is the layer-3 ceiling described above — the place to opt out of sensitive tables (e.g., `Donations`, `Background_Checks`, `Form_Responses`) even when a user's MP role would otherwise grant access. See [Setup → 3. Configure table allowlist](#3-configure-table-allowlist) for the file format and the tables intentionally excluded from the example.
+`config/table-access.json` is the layer-3 ceiling described above — the place to opt out of sensitive tables (e.g., `Donations`, `Background_Checks`, `Form_Responses`) even when a user's MP role would otherwise grant access. See [Setup → 4. Configure table allowlist](#4-configure-table-allowlist) for the file format and the tables intentionally excluded from the example.
 
 ### No secrets on client machines
 
