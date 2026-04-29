@@ -6,11 +6,11 @@ Users authenticate with their own MP credentials via OIDC, so they can only see 
 
 ## Quick start (Docker)
 
-### 0. Set up the reverse proxy
+### 1. Set up the reverse proxy
 
 You'll need a public DNS hostname for Claude to reach your MCP server. Reverse-proxy that HTTPS hostname to port 3000 of your container — see [Public HTTPS](#1-set-up-public-https) for examples.
 
-### 1. Create the MP API Client
+### 2. Create the MP API Client
 
 [In MP under **Administration → API Clients**](#2-configure-oidc), create a client and set the **Redirect URIs** to:
 
@@ -20,7 +20,7 @@ You'll need a public DNS hostname for Claude to reach your MCP server. Reverse-p
 
 Note the **Client ID** and **Client Secret** for the next step.
 
-### 2. Configure and start the container
+### 3. Configure and start the container
 
 In the directory where you want the deployment to live:
 
@@ -36,22 +36,22 @@ $EDITOR .env
 docker compose up -d
 ```
 
-### 3. Add the connector in Claude's organization settings
+### 4. Add the connector in Claude's organization settings
 
 In claude.ai, go to [**Organization Settings → Connectors**](https://claude.ai/admin-settings/connectors) and click **Add custom web connector**. Set the **Remote MCP server URL** to `<PUBLIC_URL>/mcp`. See [Connecting Claude](#connecting-claude) for the screenshot and full field reference.
 
-### 4. Each user connects from their personal settings
+### 5. Each user connects from their personal settings
 
 Each staff user opens [their personal connector settings](https://claude.ai/settings/connectors), finds the Ministry Platform connector, clicks **Connect**, and signs in with their MP credentials.
 
 ## Contents
 
 - [Quick start (Docker)](#quick-start-docker)
-  - [0. Set up the reverse proxy](#0-set-up-the-reverse-proxy)
-  - [1. Create the MP API Client](#1-create-the-mp-api-client)
-  - [2. Configure and start the container](#2-configure-and-start-the-container)
-  - [3. Add the connector in Claude's organization settings](#3-add-the-connector-in-claudes-organization-settings)
-  - [4. Each user connects from their personal settings](#4-each-user-connects-from-their-personal-settings)
+  - [1. Set up the reverse proxy](#1-set-up-the-reverse-proxy)
+  - [2. Create the MP API Client](#2-create-the-mp-api-client)
+  - [3. Configure and start the container](#3-configure-and-start-the-container)
+  - [4. Add the connector in Claude's organization settings](#4-add-the-connector-in-claudes-organization-settings)
+  - [5. Each user connects from their personal settings](#5-each-user-connects-from-their-personal-settings)
 - [Features](#features)
 - [Setup](#setup)
   - [1. Set up public HTTPS](#1-set-up-public-https)
@@ -83,7 +83,7 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
 
 ## Features
 
-- **Read-only by default** — all shipped tools (domain helpers, aggregations, generic query/get) are read operations; the allowlist's per-table `write` flag is reserved for future write tools (none ship today)
+- **Read-only — no writes implemented today** — every shipped tool calls MP via `GET`. The allowlist's per-table `write` flag is informational only; flipping it to `true` doesn't enable writes (no tool consults it as a gate, and no write code path exists). Adding write capability requires new tool implementations.
 - **Per-user OIDC auth** — each user signs in with their Ministry Platform credentials
 - **Table allowlist** — configurable cap on which tables are exposed, independent of MP security roles
 - **Concurrency limiting** — respects MP's connection limits
@@ -225,14 +225,18 @@ Tables not listed are blocked entirely, regardless of the user's MP security rol
 
 ### Option A: Docker (recommended)
 
-```bash
-# Copy and configure
-cp docker-compose.example.yml docker-compose.yml
-cp .env.example .env
-cp config/table-access.example.json config/table-access.json
+You don't need to clone the repository — the image is pulled from GHCR. (Cloning the repo is fine if you want to keep the source handy or build locally; it's just not required.) In the directory where you want the deployment to live:
 
-# Edit .env with your credentials and settings
-# Edit config/table-access.json with your table allowlist
+```bash
+curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/docker-compose.example.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/.env.example -o .env
+mkdir -p config && curl -fsSL https://raw.githubusercontent.com/The-Moody-Church/mp-mcp/main/config/table-access.example.json -o config/table-access.json
+
+# Edit .env with your credentials (MP_BASE_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, PUBLIC_URL):
+$EDITOR .env
+
+# Optionally trim config/table-access.json to just the tables you need:
+$EDITOR config/table-access.json
 
 # Run
 docker compose up -d
@@ -343,13 +347,18 @@ Go to [**Organization Settings → Connectors**](https://claude.ai/admin-setting
 |---|---|
 | **Name** | Anything readable, e.g., `Ministry Platform` |
 | **Remote MCP server URL** | `<PUBLIC_URL>/mcp` — for TMC: `https://mcp.moodychurch.app/mcp` |
-| **OAuth Client ID / Secret** (Advanced settings) | Leave blank — Claude registers dynamically with mp-mcp via the MCP auth protocol |
+| **OAuth Client ID** (Advanced settings, **required**) | The same value as `OIDC_CLIENT_ID` in your `.env` — your MP API Client's Client ID (e.g., `mcp`) |
+| **OAuth Client Secret** (Advanced settings, **required**) | The same value as `OIDC_CLIENT_SECRET` in your `.env` — your MP API Client's Client Secret |
 
 This makes the Ministry Platform connector available to everyone in the org. It does not sign anyone in.
 
 ### 2. Each user enables and signs in
 
-Each staff user opens [their personal connector settings](https://claude.ai/settings/connectors), finds the Ministry Platform connector in the list, and clicks **Connect**. That opens MP's standard sign-in page in a browser; after a successful login they're returned to Claude, and the connector's settings page now shows it as **Connected** along with the list of available tools.
+Each staff user opens [their personal connector settings](https://claude.ai/settings/connectors), finds the Ministry Platform connector in the list, and clicks **Connect**:
+
+![Ministry Platform connector listed in personal connector settings with a Connect button](docs/claude-user-connect.png)
+
+That opens MP's standard sign-in page in a browser; after a successful login they're returned to Claude, and the connector's settings page now shows it as **Connected** along with the list of available tools.
 
 Each user signs in with their own MP credentials, so the data they see through Claude matches what their MP security role already permits in the MP web UI.
 
