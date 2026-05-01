@@ -110,6 +110,7 @@ query_table and get_record are available for ad-hoc queries. query_table now wra
 - Do NOT use SQL functions in $filter (DATEADD, GETDATE, DATEDIFF, etc.) — MP rejects them as "not safe". Use literal ISO date strings instead: Event_Start_Date >= '2026-04-13'
 - Do NOT HTML-encode operators (&gt;/&lt;) — MP rejects the encoded form as "not safe". Pass >, <, >=, <= literally.
 - Use square brackets for special chars: [State/Region], [Address_Line_1]
+- MP audit columns have a leading underscore: \`_Setup_Date\`, \`_Setup_User\`, \`_Last_Modified\`, \`_Last_Modified_User\`. They're present on virtually every table but don't always appear in describe_table's sample row. If you want to filter on "when this row was created", use \`_Setup_Date\` (NOT \`Setup_Date\` — that's a different, table-specific column when it exists at all).
 
 ### Attendance
 - **Individual:** Event_Participants with Participation_Status_ID IN (3,4). 3=Attended, 4=Confirmed, 5=Cancelled.
