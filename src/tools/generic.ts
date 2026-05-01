@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getAllowedTables, isTableAllowed } from "../config.js";
 import { mpApiRequest } from "../transport.js";
 import { qualifyFilterColumns } from "../utils/column-qualifier.js";
-import { validatePathSegment } from "../utils/filter-sanitize.js";
+import { decodeHtmlOperators, validatePathSegment } from "../utils/filter-sanitize.js";
 import { getAuthFromExtra } from "./auth.js";
 
 // Format an MP API / transport error so the original message reaches the
@@ -274,7 +274,7 @@ export function registerGenericTools(server: McpServer): void {
         // already-prefixed FK joins (Foo_ID_Table.Bar) since the walker
         // skips them.
         if (select) qs["$select"] = qualifyFilterColumns(safeName, select);
-        if (filter) qs["$filter"] = qualifyFilterColumns(safeName, filter);
+        if (filter) qs["$filter"] = qualifyFilterColumns(safeName, decodeHtmlOperators(filter));
         if (orderby) qs["$orderby"] = qualifyFilterColumns(safeName, orderby);
         qs["$top"] = effectiveTop;
         if (effectiveSkip) qs["$skip"] = effectiveSkip;
@@ -345,7 +345,7 @@ export function registerGenericTools(server: McpServer): void {
           return { content: [{ type: "text" as const, text: JSON.stringify({ count: 0 }, null, 2) }] };
         }
         const idColumn = Object.keys(probe[0]).find((k) => k.endsWith("_ID")) ?? Object.keys(probe[0])[0];
-        const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
+        const safeFilter = filter ? qualifyFilterColumns(safeName, decodeHtmlOperators(filter)) : undefined;
 
         let total = 0;
         let pages = 0;
@@ -430,7 +430,7 @@ export function registerGenericTools(server: McpServer): void {
         const labelKey = fkMatch
           ? fkMatch[2]
           : group_by.includes(".") ? group_by.split(".").pop()! : group_by;
-        const safeFilter = filter ? qualifyFilterColumns(safeName, filter) : undefined;
+        const safeFilter = filter ? qualifyFilterColumns(safeName, decodeHtmlOperators(filter)) : undefined;
 
         // Paginated row counter — counts page lengths only, never reads
         // column values. Robust to MP's bug where the value of a qualified
