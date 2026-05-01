@@ -67,6 +67,44 @@ const mpFetch: typeof fetch = async (input, init) => {
   return res;
 };
 
+// Server-side token obtained via client_credentials, used only for the
+// membership lookup that gates ALLOWED_USER_GROUP_IDS. Keeping that lookup
+// off the user's token means end users don't need Read on dp_Users /
+// dp_User_User_Groups — only the API client's Client User does.
+let serverTokenCache: { token: string; expiresAt: number } | null = null;
+const SERVER_TOKEN_REFRESH_MARGIN_MS = 60_000;
+
+async function getServerToken(): Promise<string> {
+  const now = Date.now();
+  if (serverTokenCache && serverTokenCache.expiresAt > now + SERVER_TOKEN_REFRESH_MARGIN_MS) {
+    return serverTokenCache.token;
+  }
+
+  const params = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: config.oidcClientId,
+    client_secret: config.oidcClientSecret,
+    scope: "http://www.thinkministry.com/dataplatform/scopes/all",
+  });
+
+  const res = await fetch(`${mpOAuthBase}/connect/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+
+  if (!res.ok) {
+    serverTokenCache = null;
+    console.error(`[serverToken] client_credentials failed ${res.status}`);
+    throw new Error("Server token request failed");
+  }
+
+  const data = (await res.json()) as { access_token: string; expires_in?: number };
+  const ttlMs = (data.expires_in ?? 3600) * 1000;
+  serverTokenCache = { token: data.access_token, expiresAt: now + ttlMs };
+  return data.access_token;
+}
+
 const oauthProvider = new ProxyOAuthServerProvider({
   endpoints: {
     authorizationUrl: `${mpOAuthBase}/connect/authorize`,
@@ -100,16 +138,21 @@ const oauthProvider = new ProxyOAuthServerProvider({
 
     // Fail-closed user group restriction: when configured, deny unless we
     // can positively confirm membership in at least one allowed group.
+    // The lookup runs on the API client's own token (client_credentials),
+    // not the user's — so end users do not need Read on dp_Users or
+    // dp_User_User_Groups. The API client's Client User does.
     if (config.allowedUserGroupIds.length > 0) {
       const denied = new Error("User not in allowed groups");
       const apiBase = `${config.mpBaseUrl}/ministryplatformapi`;
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      };
 
       let hasAccess = false;
       try {
+        const serverToken = await getServerToken();
+        const headers = {
+          Authorization: `Bearer ${serverToken}`,
+          Accept: "application/json",
+        };
+
         // Escape the OIDC sub before interpolating into the SQL-ish filter.
         // MP issues subs as UUIDs so a quote shouldn't appear, but this is
         // cheap belt-and-suspenders in case the upstream ever changes.

@@ -6,7 +6,7 @@ This document describes how the MCP server approaches security, what it enforces
 
 ### Authentication & authorization
 - Every MCP call requires a valid MP OIDC bearer token. The server calls MP's `userinfo` endpoint to verify.
-- When `ALLOWED_USER_GROUP_IDS` is set, the user must be a positively-confirmed member of at least one listed MP User Group. Any lookup failure denies (fail-closed).
+- When `ALLOWED_USER_GROUP_IDS` is set, the user must be a positively-confirmed member of at least one listed MP User Group. The lookup uses a server-side `client_credentials` token (the API client's Client User), not the user's token, so end users do not need Read on `dp_Users` / `dp_User_User_Groups`. Any lookup failure denies (fail-closed).
 - Dynamic OAuth client registration only accepts `redirect_uri`s that are `https://` AND on the allowlist (`https://claude.ai/api/mcp/auth_callback` plus anything in `ALLOWED_REDIRECT_URIS`).
 - Every registered client gets a fresh random `client_secret`; the configured `OIDC_CLIENT_SECRET` is never echoed back to registrants.
 

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `ALLOWED_USER_GROUP_IDS` membership lookup now runs on a server-side `client_credentials` token (the API client's Client User) instead of the signed-in user's token. End users no longer need Read on `dp_Users` / `dp_User_User_Groups` to log in. **Migration:** if you set this env var, enable Client Credentials on the MP API client and grant Read on those two tables to the Client User's role; existing per-staff grants on those tables can be revoked.
+
 ## [0.1.1] - 2026-04-29
 
 Correctness fixes for `group_by_count`, `count_rows`, and `query_table` on tables with self-referenceable foreign-key chains. **Anyone using `group_by_count` for engagement / membership / status breakdowns on `Participants` should upgrade.**
