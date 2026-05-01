@@ -416,7 +416,7 @@ The `query_table` tool supports Ministry Platform's query parameters:
 
 ### Authentication
 
-Users authenticate via OIDC with their Ministry Platform credentials. The server uses the user's own access token for all MP API calls, so MP's security roles enforce what data they can see — the same permissions they have in the MP web UI.
+Users authenticate via OIDC with their Ministry Platform credentials. **Every tool call** uses the user's own access token, so MP's security roles enforce what data each user can see — the same permissions they have in the MP web UI. The only exception is the `ALLOWED_USER_GROUP_IDS` membership lookup itself, which uses a server-side `client_credentials` token narrowly scoped to two reads (`dp_Users` and `dp_User_User_Groups`); this token is never used for tool calls and never reaches the user-visible code path. See [Permission model](#permission-model) for the layered ceilings on actual data access.
 
 ### Permission model
 
