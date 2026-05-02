@@ -37,3 +37,48 @@ export function escapeLikeValue(value: string): string {
     .replace(/%/g, "[%]")
     .replace(/_/g, "[_]");
 }
+
+const HTML_OPERATOR_ENTITIES: Array<[string, string]> = [
+  ["&lt;", "<"],
+  ["&gt;", ">"],
+  ["&amp;", "&"],
+];
+
+/**
+ * Decode HTML entities for comparison operators outside single-quoted
+ * string literals. LLMs sometimes emit `_Date &lt; '...'` instead of
+ * `_Date < '...'`, and MP rejects the entity-encoded form as "not safe".
+ * String literals are passed through verbatim so user-supplied search text
+ * containing `&lt;` (etc.) isn't altered.
+ */
+export function decodeHtmlOperators(expr: string): string {
+  let out = "";
+  let i = 0;
+  while (i < expr.length) {
+    if (expr[i] === "'") {
+      const start = i;
+      i++;
+      while (i < expr.length) {
+        if (expr[i] === "'") {
+          if (expr[i + 1] === "'") { i += 2; continue; }
+          i++;
+          break;
+        }
+        i++;
+      }
+      out += expr.slice(start, i);
+      continue;
+    }
+    if (expr[i] === "&") {
+      const match = HTML_OPERATOR_ENTITIES.find(([ent]) => expr.startsWith(ent, i));
+      if (match) {
+        out += match[1];
+        i += match[0].length;
+        continue;
+      }
+    }
+    out += expr[i];
+    i++;
+  }
+  return out;
+}
