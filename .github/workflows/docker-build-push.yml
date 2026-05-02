@@ -15,6 +15,14 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
 
+    # Opt into Node 24 for transitive Node 20 actions (e.g. actions/cache
+    # used internally by docker/build-push-action's GHA layer cache).
+    # GitHub flips this default on 2026-06-02 and removes Node 20 entirely
+    # on 2026-09-16; setting it now hits any compatibility surprise on our
+    # schedule rather than being surprised by the runner default.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
     permissions:
       contents: read
       packages: write
