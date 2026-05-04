@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "build:schema": "tsx --env-file=.env scripts/build-schema.ts"
   },
   "engines": {
     "node": ">=22.0.0"
