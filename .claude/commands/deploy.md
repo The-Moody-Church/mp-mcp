@@ -4,7 +4,11 @@ Pull the latest released image (`:latest`) and restart the mp-mcp container on T
 
 ## Instructions
 
-1. **Check CI status**: Run `gh run list --repo The-Moody-Church/mp-mcp --branch main --limit 1` and verify the most recent workflow completed successfully. If it's still in progress, wait and poll every 15 seconds until it completes (or fails). If it failed, stop and report the failure — do not deploy.
+1. **Check CI status**: `:latest` only rebuilds when a release tag (matching `v*`) is pushed — main-branch pushes don't move it. Find the most recent tag-push run:
+   ```bash
+   gh run list --repo The-Moody-Church/mp-mcp --workflow "Build, Scan, and Push Docker Image" --event push --limit 30 --json databaseId,headBranch,conclusion,status,createdAt,displayTitle --jq '[.[] | select(.headBranch | test("^v[0-9]"))] | .[0]'
+   ```
+   Verify `conclusion` is `success`. If `status` is `in_progress` or `queued`, wait and poll every 15 seconds until it completes. If it failed, stop and report. Note the tag in `headBranch` so the user knows which release version they're about to deploy.
 
 2. **Pull the new image**: SSH into TMC1 and pull + recreate:
    ```bash
