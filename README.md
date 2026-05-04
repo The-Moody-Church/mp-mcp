@@ -302,7 +302,7 @@ Tables not listed are blocked entirely, regardless of the user's MP security rol
 npm run build:schema
 ```
 
-The script uses the same `MP_BASE_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` from `.env` that the server uses, calls MP's REST API once per allowlisted table, and writes the file. The Client User backing the OIDC client must have read access on every allowlisted table; tables it can't see show up as failures in the script's output and cause a non-zero exit. The live MP UI's Data Dictionary remains the source of truth for SQL type widths and column descriptions — those aren't captured.
+The script uses the same `MP_BASE_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` from `.env` that the server uses, hits MP's `/tables` metadata endpoint once per allowlisted table, and writes the file. Captured per column: name, abstract data type with size, primary-key / required / read-only / computed flags, and FK target table when MP marks the column as a foreign key. The `label_column` overlay (which column on the lookup table is the canonical display value) comes from this repo's `FK_CATALOG`, since MP doesn't surface that. The Client User backing the OIDC client must have read access on every allowlisted table; tables it can't see show up as misses in the script's output and cause a non-zero exit.
 
 ### Start the server
 

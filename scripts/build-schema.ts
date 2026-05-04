@@ -1,5 +1,5 @@
 /**
- * Regenerate docs/allowlisted-table-schema.json from the live MP REST API.
+ * Regenerate docs/allowlisted-table-schema.json from MP's metadata endpoint.
  *
  * Usage:
  *   npm run build:schema
@@ -8,12 +8,16 @@
  *         .env                      (MP_BASE_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET)
  * Writes: docs/allowlisted-table-schema.json
  *
- * The output mirrors the shape of the runtime `describe_table` tool:
- * { TableName: [{ name, type, fk_join_prefix?, lookup_table?, label_column? }, ...] }
- * — i.e. names + JS-introspected types + FK metadata. SQL type widths and
- * column descriptions from MP's data dictionary are NOT captured (the REST
- * row-introspection path doesn't expose them); the live MP UI's Data
- * Dictionary remains the source of truth for those.
+ * Mechanism: GET /ministryplatformapi/tables?$search=<table> per allowlisted
+ * table, parsing the column metadata MP returns inline (Name, DataType, Size,
+ * IsRequired, IsPrimaryKey, IsForeignKey, ReferencedTable, ReferencedColumn,
+ * IsReadOnly, IsComputed). The label_column for FK columns — i.e. which
+ * column on the lookup table is the canonical display value — is overlaid
+ * from FK_CATALOG since MP doesn't surface that.
+ *
+ * The runtime `describe_table` tool still uses $top=1 row introspection +
+ * FK_CATALOG since it has to answer per-call without round-tripping for
+ * metadata. That divergence is intentional.
  */
 
 import { writeFileSync } from "node:fs";
@@ -21,15 +25,40 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAllowedTables } from "../src/config.js";
 import { mpApiRequest } from "../src/transport.js";
-import { FK_CATALOG, inferLookupTable } from "../src/utils/fk-catalog.js";
+import { FK_CATALOG } from "../src/utils/fk-catalog.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
 const OUTPUT_PATH = join(PROJECT_ROOT, "docs", "allowlisted-table-schema.json");
 
-interface FieldMetadata {
+interface ColumnMetadata {
+  Name: string;
+  DataType: string;
+  IsRequired: boolean;
+  Size: number;
+  IsPrimaryKey?: boolean;
+  IsForeignKey?: boolean;
+  ReferencedTable?: string;
+  ReferencedColumn?: string;
+  IsReadOnly?: boolean;
+  IsComputed?: boolean;
+  HasDefault?: boolean;
+}
+
+interface TableMetadata {
+  Table_Name: string;
+  Display_Name?: string;
+  Description?: string;
+  Columns?: ColumnMetadata[];
+}
+
+interface FieldOutput {
   name: string;
   type: string;
+  pk?: true;
+  required?: true;
+  read_only?: true;
+  computed?: true;
   fk_join_prefix?: string;
   lookup_table?: string;
   label_column?: string;
@@ -40,8 +69,7 @@ function require_env(name: string): string {
   if (!value) {
     throw new Error(
       `Missing required environment variable: ${name}. ` +
-      `Run with \`node --env-file=.env\` (handled by \`npm run build:schema\`) ` +
-      `or export it in your shell.`
+      `Run with \`npm run build:schema\` (uses --env-file=.env) or export it in your shell.`
     );
   }
   return value;
@@ -69,38 +97,47 @@ async function getServerToken(mpBaseUrl: string, clientId: string, clientSecret:
   return data.access_token;
 }
 
-function describeColumns(sample: Record<string, unknown>, allowedTables: string[]): FieldMetadata[] {
-  const columnNames = Object.keys(sample);
-  // MP returns the primary key as the first column. Treat the first _ID
-  // column as the PK so we don't tag it as a foreign key.
-  const primaryKey = columnNames.find((k) => k.endsWith("_ID"));
+// MP returns abstract types ("String", "Integer32", "DateTime") rather than
+// raw SQL types. Append Size for types where it's meaningful; -1 means MAX.
+function formatType(col: ColumnMetadata): string {
+  if (col.Size === -1) return `${col.DataType}(max)`;
+  if (col.Size > 0) return `${col.DataType}(${col.Size})`;
+  return col.DataType;
+}
 
-  return columnNames.map((key) => {
-    const value = sample[key];
-    const type =
-      value === null ? "null" :
-      value instanceof Date ? "date" :
-      Array.isArray(value) ? "array" :
-      typeof value;
+function mapColumns(columns: ColumnMetadata[]): FieldOutput[] {
+  return columns
+    .filter((c) => c.DataType !== "Separator")
+    .map((c) => {
+      const field: FieldOutput = {
+        name: c.Name,
+        type: formatType(c),
+      };
+      if (c.IsPrimaryKey) field.pk = true;
+      if (c.IsRequired) field.required = true;
+      if (c.IsReadOnly) field.read_only = true;
+      if (c.IsComputed) field.computed = true;
 
-    const field: FieldMetadata = { name: key, type };
-    if (key === primaryKey) return field;
-
-    const catalogEntry = FK_CATALOG[key];
-    if (catalogEntry) {
-      field.fk_join_prefix = `${key}_Table`;
-      field.lookup_table = catalogEntry.lookup_table;
-      field.label_column = catalogEntry.label_column;
+      if (c.IsForeignKey && c.ReferencedTable) {
+        field.fk_join_prefix = `${c.Name}_Table`;
+        field.lookup_table = c.ReferencedTable;
+        const labelColumn = FK_CATALOG[c.Name]?.label_column;
+        if (labelColumn) field.label_column = labelColumn;
+      }
       return field;
-    }
+    });
+}
 
-    if (key.endsWith("_ID")) {
-      field.fk_join_prefix = `${key}_Table`;
-      const lookup = inferLookupTable(key, allowedTables);
-      if (lookup) field.lookup_table = lookup;
-    }
-    return field;
-  });
+async function fetchTableMetadata(
+  mpBaseUrl: string, token: string, table: string
+): Promise<TableMetadata | null> {
+  // $search is a substring match across the metadata table names; filter
+  // the response to the exact match so e.g. "Groups" doesn't pick up
+  // "Group_Participants" too.
+  const results = await mpApiRequest(
+    mpBaseUrl, token, "GET", "/tables", { $search: table }
+  ) as TableMetadata[];
+  return results.find((t) => t.Table_Name === table) ?? null;
 }
 
 async function main(): Promise<void> {
@@ -116,39 +153,52 @@ async function main(): Promise<void> {
   console.log(`[build-schema] introspecting ${allowed.length} tables against ${mpBaseUrl}`);
   const token = await getServerToken(mpBaseUrl, clientId, clientSecret);
 
-  const output: Record<string, FieldMetadata[]> = {};
-  const empty: string[] = [];
+  const output: Record<string, FieldOutput[]> = {};
+  const missingMetadata: string[] = [];
   const failed: Array<{ table: string; error: string }> = [];
 
-  for (const table of allowed) {
+  // mpApiRequest's concurrency limiter (6 in flight) handles parallelism;
+  // Promise.all here just lets the limiter saturate.
+  const results = await Promise.all(allowed.map(async (table) => {
     try {
-      const rows = await mpApiRequest(
-        mpBaseUrl, token, "GET",
-        `/tables/${encodeURIComponent(table)}`, { $top: 1 }
-      ) as Record<string, unknown>[];
-
-      if (rows.length === 0) {
-        empty.push(table);
-        output[table] = [];
-        continue;
+      const meta = await fetchTableMetadata(mpBaseUrl, token, table);
+      if (!meta) return { table, status: "not_found" as const };
+      if (!meta.Columns || meta.Columns.length === 0) {
+        return { table, status: "no_columns" as const };
       }
-      output[table] = describeColumns(rows[0], allowed);
-      console.log(`  ok  ${table} (${output[table].length} columns)`);
+      return { table, status: "ok" as const, fields: mapColumns(meta.Columns) };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      failed.push({ table, error: message });
-      console.error(`  FAIL ${table}: ${message}`);
+      return { table, status: "error" as const, message };
+    }
+  }));
+
+  for (const r of results) {
+    if (r.status === "ok") {
+      output[r.table] = r.fields;
+      console.log(`  ok    ${r.table} (${r.fields.length} columns)`);
+    } else if (r.status === "not_found") {
+      missingMetadata.push(r.table);
+      console.error(`  miss  ${r.table} — no metadata returned (Client User likely lacks read access)`);
+    } else if (r.status === "no_columns") {
+      missingMetadata.push(r.table);
+      console.error(`  empty ${r.table} — metadata response had no Columns array`);
+    } else {
+      failed.push({ table: r.table, error: r.message });
+      console.error(`  FAIL  ${r.table}: ${r.message}`);
     }
   }
 
-  writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf-8");
-  console.log(`\n[build-schema] wrote ${OUTPUT_PATH}`);
-
-  if (empty.length > 0) {
-    console.log(`[build-schema] ${empty.length} table(s) had no rows — columns left empty: ${empty.join(", ")}`);
+  // Write in allowlist order so the file diff stays stable across runs.
+  const ordered: Record<string, FieldOutput[]> = {};
+  for (const t of allowed) {
+    if (output[t]) ordered[t] = output[t];
   }
-  if (failed.length > 0) {
-    console.error(`[build-schema] ${failed.length} table(s) failed; check Client User permissions.`);
+  writeFileSync(OUTPUT_PATH, JSON.stringify(ordered, null, 2) + "\n", "utf-8");
+  console.log(`\n[build-schema] wrote ${OUTPUT_PATH} (${Object.keys(ordered).length} tables)`);
+
+  if (missingMetadata.length > 0 || failed.length > 0) {
+    console.error(`[build-schema] ${missingMetadata.length} missing, ${failed.length} failed.`);
     process.exitCode = 1;
   }
 }

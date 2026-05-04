@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Replaced the static `docs/mp-data-dictionary.htm` reference (a 16k-line vendor-published snapshot that went stale silently) with a `npm run build:schema` step that regenerates `docs/allowlisted-table-schema.json` against the live MP REST API. The script reuses the server's `MP_BASE_URL` / OIDC client credentials and emits the same field shape `describe_table` uses at runtime. SQL type widths and column descriptions are no longer captured here — operators who need them should consult MP's in-product Data Dictionary, which is always current.
+- Replaced the static `docs/mp-data-dictionary.htm` reference (a 16k-line vendor-published snapshot that went stale silently) with a `npm run build:schema` step that regenerates `docs/allowlisted-table-schema.json` against MP's `/tables` metadata endpoint. The script reuses the server's `MP_BASE_URL` / OIDC client credentials and captures per column: name, abstract data type with size, PK / required / read-only / computed flags, and FK target table when MP flags the column as a foreign key. The `label_column` overlay is read from this repo's curated `FK_CATALOG` since MP doesn't surface canonical display columns. This matches the schema-fetch mechanism used by the upstream community projects (MPNext, mp-charts).
 - Extracted the FK lookup-table catalog into `src/utils/fk-catalog.ts` so the runtime `describe_table` tool and the schema-regen script share one source of truth.
 
 ## [0.2.0] - 2026-05-02
