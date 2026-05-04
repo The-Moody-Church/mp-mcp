@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Replaced the static `docs/mp-data-dictionary.htm` reference (a 16k-line vendor-published snapshot that went stale silently) with a `npm run build:schema` step that regenerates `docs/allowlisted-table-schema.json` against the live MP REST API. The script reuses the server's `MP_BASE_URL` / OIDC client credentials and emits the same field shape `describe_table` uses at runtime. SQL type widths and column descriptions are no longer captured here — operators who need them should consult MP's in-product Data Dictionary, which is always current.
+- Extracted the FK lookup-table catalog into `src/utils/fk-catalog.ts` so the runtime `describe_table` tool and the schema-regen script share one source of truth.
+
 ## [0.2.0] - 2026-05-02
 
 Reworks the `ALLOWED_USER_GROUP_IDS` group-gate so the membership lookup runs on the API Client's own credentials instead of the signed-in user's token. **If you use `ALLOWED_USER_GROUP_IDS`, this is a breaking deployment change: you must enable Client Credentials grant on your MP API Client and grant the Client User's role Read on `dp_Users` / `dp_User_User_Groups` *before* upgrading, or every login will fail.** Operators with `ALLOWED_USER_GROUP_IDS` empty (or unset) are unaffected.

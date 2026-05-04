@@ -7,9 +7,10 @@ MCP server that gives Claude direct access to Ministry Platform's REST API. User
 ## Commands
 
 ```bash
-npm run build    # Compile TypeScript → dist/
-npm run dev      # Dev mode with tsx watch
-npm start        # Run production build
+npm run build         # Compile TypeScript → dist/
+npm run dev           # Dev mode with tsx watch
+npm start             # Run production build
+npm run build:schema  # Regenerate docs/allowlisted-table-schema.json from live MP
 ```
 
 ## Architecture
@@ -19,7 +20,8 @@ npm start        # Run production build
 - `src/transport.ts` — Authenticated MP API requests with concurrency limiting
 - `src/tools/` — Tool implementations (`people`, `groups`, `events`, `generic`, `auth`)
 - `src/config.ts` — Environment config + table allowlist loading
-- `src/utils/` — Filter sanitization (`filter-sanitize`), URL length handling (`url-builder`), tool invocation logging (`tool-logger`)
+- `src/utils/` — Filter sanitization (`filter-sanitize`), URL length handling (`url-builder`), tool invocation logging (`tool-logger`), shared FK metadata (`fk-catalog`)
+- `scripts/build-schema.ts` — Regenerates `docs/allowlisted-table-schema.json` against live MP using the server's OIDC client credentials
 
 ## Key patterns
 

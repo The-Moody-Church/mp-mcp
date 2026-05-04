@@ -294,6 +294,16 @@ Tables not listed are blocked entirely, regardless of the user's MP security rol
 - `Background_Checks` — criminal-history data. High downside if a misconfigured role exposes them through the REST API.
 - `Form_Responses` — freeform user-submitted text. High PII density and a prompt-injection surface for anything downstream of Claude.
 
+### Snapshot the allowlisted schema (optional)
+
+`docs/allowlisted-table-schema.json` is a checked-in snapshot of the columns on the tables you've allowlisted, useful as Claude-context seed material or as a contributor reference. Regenerate it after changing the allowlist:
+
+```bash
+npm run build:schema
+```
+
+The script uses the same `MP_BASE_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` from `.env` that the server uses, calls MP's REST API once per allowlisted table, and writes the file. The Client User backing the OIDC client must have read access on every allowlisted table; tables it can't see show up as failures in the script's output and cause a non-zero exit. The live MP UI's Data Dictionary remains the source of truth for SQL type widths and column descriptions — those aren't captured.
+
 ### Start the server
 
 Once your `.env` and `config/table-access.json` are filled in, start the server:
