@@ -1,6 +1,6 @@
 # Deploy Command
 
-Pull the latest Docker image and restart the mp-mcp container on TMC1 after verifying CI has completed.
+Pull the latest released image (`:latest`) and restart the mp-mcp container on TMC1 after verifying CI has completed. Uses the base compose file only — no overrides.
 
 ## Instructions
 
@@ -8,7 +8,7 @@ Pull the latest Docker image and restart the mp-mcp container on TMC1 after veri
 
 2. **Pull the new image**: SSH into TMC1 and pull + recreate:
    ```bash
-   ssh ironside@192.168.5.222 "cd /srv/mp-mcp && docker compose pull && docker compose down && docker compose up -d"
+   ssh tmc1 "cd /srv/mp-mcp && docker compose pull && docker compose down && docker compose up -d"
    ```
    Verify the output shows the container was recreated and started.
 
@@ -22,7 +22,7 @@ Pull the latest Docker image and restart the mp-mcp container on TMC1 after veri
    ```bash
    curl -s https://mcp.moodychurch.app/health
    ```
-   Expect `{"status":"ok","version":"0.1.0"}`.
+   Expect `{"status":"ok"}`.
 
 5. **Check startup logs**: Check for clean startup:
    ```bash
@@ -41,8 +41,8 @@ Pull the latest Docker image and restart the mp-mcp container on TMC1 after veri
 
 ## Notes
 
-- The Docker context `tmc1` is configured at `ssh://ironside@192.168.5.222`
-- The compose file is at `/srv/mp-mcp/docker-compose.yml` on the remote host
-- The image is `ghcr.io/the-moody-church/mp-mcp:latest`
-- Use `docker --context tmc1` for inspection commands but `ssh ironside@192.168.5.222` for compose commands (compose needs the local file path)
-- Use `docker compose down && docker compose up -d` (not `restart`) to ensure the new image is used
+- The `tmc1` SSH alias (in `~/.ssh/config`) and the `tmc1` Docker context both resolve to the production host. The alias keeps the actual host/user out of this file.
+- The compose file is at `/srv/mp-mcp/docker-compose.yml` on the remote host; the base file pins `image: ghcr.io/the-moody-church/mp-mcp:latest`.
+- Use `docker --context tmc1` for inspection commands but `ssh tmc1` for compose commands (compose needs the local file path).
+- Use `docker compose down && docker compose up -d` (not `restart`) to ensure the new image is used.
+- For the bleeding-edge `main` branch image, use `/deploy-main`. For PR previews on `:dev`, use `/deploy-dev`.
