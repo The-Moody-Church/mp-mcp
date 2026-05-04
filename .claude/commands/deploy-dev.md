@@ -4,7 +4,11 @@ Pull the `:dev` image (rebuilt on every push to a non-`main` branch) and restart
 
 ## Instructions
 
-1. **Skip CI check by default.** `:dev` is single-tenant — it tracks whichever non-`main` branch was pushed most recently — so a CI check on `main` doesn't apply. If you want to verify a specific branch's build before deploying, do that manually with `gh run list --branch <branch>` first.
+1. **Check CI status**: `:dev` rebuilds on every push to any non-`main` branch — it's single-tenant, so whichever non-`main` branch was pushed most recently is what `:dev` points to right now. Find that build:
+   ```bash
+   gh run list --repo The-Moody-Church/mp-mcp --workflow "Build, Scan, and Push Docker Image" --event push --limit 20 --json databaseId,headBranch,conclusion,status,createdAt,displayTitle --jq '[.[] | select(.headBranch != "main")] | .[0]'
+   ```
+   Verify `conclusion` is `success`. If `status` is `in_progress` or `queued`, wait and poll every 15 seconds until it completes. If it failed, stop and report — do not deploy. Note the `headBranch` so the user knows which branch they're about to deploy onto prod hardware.
 
 2. **Pull and restart with the dev override**:
    ```bash
@@ -30,7 +34,7 @@ Pull the `:dev` image (rebuilt on every push to a non-`main` branch) and restart
    ```
    Look for `mp-mcp server listening on port 3000`.
 
-6. **Report result**: image tag and start time, health check response, and which PR / branch the `:dev` build was last triggered from (if obvious from `gh run list --workflow "Build, Scan, and Push Docker Image" --event push --limit 5`).
+6. **Report result**: image tag and start time, health check response, and the branch/PR the `:dev` build was triggered from (already known from step 1).
 
 ## Notes
 
