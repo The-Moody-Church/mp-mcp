@@ -61,6 +61,7 @@ Each staff user opens [their personal connector settings](https://claude.ai/sett
     - [Compose options](#compose-options)
     - [Networking](#networking)
   - [Option B: Node.js (no Docker)](#option-b-nodejs-no-docker)
+  - [Vercel and other serverless platforms](#vercel-and-other-serverless-platforms)
 - [Configuration](#configuration)
   - [1. Environment variables](#1-environment-variables)
   - [2. Table allowlist](#2-table-allowlist)
@@ -254,6 +255,19 @@ cp config/table-access.example.json config/table-access.json
 ```
 
 Once the files are in place, [continue to Configuration](#configuration) →
+
+### Vercel and other serverless platforms
+
+**Don't deploy mp-mcp to Vercel, AWS Lambda, Cloudflare Workers, or similar function-as-a-service platforms.** It won't work reliably, and the failure modes are subtle.
+
+mp-mcp keeps several pieces of state in process memory that are required for correctness across requests:
+
+- **MCP session transports** — each user holds a `StreamableHTTPServerTransport` keyed by their user ID and the session ID the SDK assigns on initialize. Subsequent tool calls have to land on the same process or the SDK returns 404 "Session not found" and the client has to reinitialize.
+- **OAuth dynamic client registration** — Claude calls `/register` to mint a client, then `/authorize` with that client ID. If the two requests hit different workers, `/authorize` fails because the client doesn't exist there.
+- **Verified-token cache** — without a shared cache, every tool call re-hits MP's `userinfo` endpoint (and the `dp_Users` / `dp_User_User_Groups` lookup when `ALLOWED_USER_GROUP_IDS` is set), amplifying MP API traffic by a large multiple.
+- **Idle-sweep `setInterval`** — relies on a long-lived process; serverless invocations end when the request finishes.
+
+Serverless platforms route requests across ephemeral workers and don't guarantee any of those invariants, even with "always-on" / "fluid" tiers. Use a host that runs a single long-lived Node.js process: a Docker host (any VPS, Fly.io, Railway, Render, ECS, etc.) or a managed Node service. The [Docker](#option-a-docker-recommended) and [Node.js](#option-b-nodejs-no-docker) deployments above cover the common paths.
 
 ## Configuration
 
